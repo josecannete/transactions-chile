@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [
-    {name = "Jose Cañete", email = "example@example.com"}
+    {name = "Jose Cañete", email = "josecannete@gmail.com"}
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -25,6 +25,7 @@ dependencies = [
     "openpyxl>=3.1.0",
     "click>=8.1.0",
     "rich>=13.4.0",
+    "xlrd>=2.0.1",
 ]
 
 [dependency-groups]
@@ -38,11 +39,8 @@ dev = [
 excel2csv = "transactions_chile.cli:main"
 
 [project.urls]
-"Homepage" = "https://github.com/yourusername/transactions-chile"
-"Bug Tracker" = "https://github.com/yourusername/transactions-chile/issues"
-
-[tool.setuptools]
-packages = ["transactions_chile"]
+"Homepage" = "https://github.com/josecannete/transactions-chile"
+"Bug Tracker" = "https://github.com/josecannete/transactions-chile/issues"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

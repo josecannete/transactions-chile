@@ -1,7 +1,48 @@
+[build-system]
+requires = ["hatchling >= 1.26"]
+build-backend = "hatchling.build"
+
 [project]
 name = "transactions-chile"
 version = "0.1.0"
-description = "Add your description here"
+description = "CLI tool for converting Excel files to CSV format"
 readme = "README.md"
-requires-python = ">=3.13"
-dependencies = []
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+    {name = "Jose Cañete", email = "example@example.com"}
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Topic :: Office/Business :: Financial",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "pandas>=2.0.0",
+    "openpyxl>=3.1.0",
+    "click>=8.1.0",
+    "rich>=13.4.0",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.2.0",
+    "pytest>=8.3.5",
+    "ruff>=0.11.5",
+]
+
+[project.scripts]
+excel2csv = "transactions_chile.cli:main"
+
+[project.urls]
+"Homepage" = "https://github.com/yourusername/transactions-chile"
+"Bug Tracker" = "https://github.com/yourusername/transactions-chile/issues"
+
+[tool.setuptools]
+packages = ["transactions_chile"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

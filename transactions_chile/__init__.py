@@ -4,5 +4,3 @@ A command-line tool for converting Excel files to CSV format.
 """
 
 __version__ = "0.1.0"
-
-from .converter import convert_excel_to_csv  # noqa: F401

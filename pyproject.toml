@@ -38,7 +38,7 @@ dev = [
 ]
 
 [project.scripts]
-excel2csv = "transactions_chile.cli:main"
+transactions-chile = "transactions_chile.cli:main"
 
 [project.urls]
 "Homepage" = "https://github.com/josecannete/transactions-chile"

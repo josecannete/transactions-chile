@@ -7,7 +7,7 @@ import pandas as pd
 class BankTransactions(ABC):
     """Base class for handling bank transactions."""
 
-    def __init__(self, transactions: pd.DataFrame = None, convert: bool = True) -> None:
+    def __init__(self, transactions: pd.DataFrame, convert: bool = True) -> None:
         """
         Initialize the BankTransactions class.
 
@@ -15,11 +15,9 @@ class BankTransactions(ABC):
             transactions (pd.DataFrame, optional): DataFrame containing transactions. Defaults to None.
             convert (bool, optional): Whether to convert the DataFrame format. Defaults to True.
         """
-        self.transactions = (
-            self._convert_dataframe(transactions or pd.DataFrame())
-            if convert
-            else (transactions or pd.DataFrame())
-        )
+        self.transactions = transactions
+        if convert:
+            self.transactions = self._convert_dataframe(transactions)
 
     @property
     @abstractmethod

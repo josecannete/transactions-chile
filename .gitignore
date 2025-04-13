@@ -178,3 +178,8 @@ cython_debug/
 
 # Mac OS specific files
 .DS_Store
+
+# Excel and CSV files
+*.xlsx
+*.xls
+*.csv

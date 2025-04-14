@@ -162,9 +162,10 @@ class SantanderBankTransactions(BankTransactions):
         transactions_df["description"] = transactions_df["Detalle"]
         transactions_df["imported_payee"] = transactions_df["description"]
         transactions_df["balance"] = transactions_df["Saldo ($)"]
+        transactions_df["city"] = ""
 
         return transactions_df[
-            ["date", "imported_payee", "description", "amount", "balance"]
+            ["date", "imported_payee", "description", "amount", "balance", "city"]
         ]
 
 

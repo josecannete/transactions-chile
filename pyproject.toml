@@ -3,7 +3,7 @@ requires = ["hatchling >= 1.26"]
 build-backend = "hatchling.build"
 
 [project]
-name = "transactions-chile"
+name = "transactions_chile"
 version = "0.1.0"
 description = "CLI tool for converting Excel files to CSV format"
 readme = "README.md"

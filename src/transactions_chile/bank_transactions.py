@@ -169,12 +169,16 @@ class SantanderBankTransactions(BankTransactions):
         ]
 
 
-class ItauBankTransactions(BankTransactions):
+class ItauBankTransactions(BankTransactions, ABC):
     """Class for handling transactions from Itau Bank."""
 
     @property
     def bank_name(self) -> str:
         return "Itau"
+
+
+class ItauTCBankTransactions(ItauBankTransactions):
+    """Class for handling transactions from Itau Bank."""
 
     @property
     def account_type(self) -> str:
@@ -215,6 +219,56 @@ class ItauBankTransactions(BankTransactions):
         transactions_df["amount"] = -transactions_df["Monto"]
         transactions_df["city"] = transactions_df["Ciudad"]
         transactions_df["balance"] = 0
+        return transactions_df[
+            ["date", "imported_payee", "description", "amount", "city", "balance"]
+        ]
+
+
+class ItauCCBankTransactions(ItauBankTransactions):
+    """Class for handling transactions from Itau Bank."""
+
+    @property
+    def account_type(self) -> str:
+        return "Cuenta Corriente"
+
+    @classmethod
+    def from_excel(cls, input_file: str, sheet_name: int = 0) -> Self:
+        """
+        Read transactions from an Itau Bank Excel file.
+
+        Args:
+            input_file (str): Path to the Excel file.
+            sheet_name (int, optional): Sheet index to read from. Defaults to 0.
+
+        Returns:
+            Self: Instance with loaded transactions.
+        """
+        transactions_df = pd.read_excel(
+            input_file, sheet_name=sheet_name, skiprows=10, skipfooter=5
+        )
+        return cls(transactions_df, convert=True)
+
+    def _convert_dataframe(self, transactions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Convert Itau Bank transactions format to standard format.
+
+        Args:
+            transactions_df (pd.DataFrame): Original Itau transactions.
+
+        Returns:
+            pd.DataFrame: Standardized transactions.
+        """
+        transactions_df["date"] = pd.to_datetime(
+            transactions_df["Fecha"], format="%Y-%m-%d"
+        )
+        transactions_df["description"] = transactions_df["Movimientos"]
+        transactions_df["imported_payee"] = transactions_df["Movimientos"]
+        transactions_df["amount"] = transactions_df["Abonos"].fillna(
+            0
+        ) - transactions_df["Cargos"].fillna(0)
+        transactions_df["amount"] = transactions_df["amount"].astype(int)
+        transactions_df["city"] = ""
+        transactions_df["balance"] = transactions_df["Saldo"]
         return transactions_df[
             ["date", "imported_payee", "description", "amount", "city", "balance"]
         ]

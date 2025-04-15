@@ -6,9 +6,10 @@ A command-line tool for converting bank statements from Excel to CSV format with
 
 - Convert bank statements from Excel (.xlsx, .xls) files to CSV format
 - Support for multiple banks:
-  - Santander
-  - Itau
-  - Banco Chile
+  - Santander (Checking Account)
+  - Itau (Credit Card and Checking Account)
+  - Banco Chile (Credit Card and Checking Account)
+- Account type selection (checking or credit card)
 - Validation of transaction data
 - Customize delimiter and encoding
 - Rich command-line interface with progress indicators
@@ -73,6 +74,10 @@ Options:
   -f, --force                   Overwrite output file if it already exists.
   -b, --bank [santander|itau|bancochile]
                                 Bank type (required)
+  -a, --account-type [checking|credit]
+                                Account type (checking for 'Cuenta Corriente', 
+                                credit for 'Tarjeta de Crédito'). If not specified,
+                                defaults to the most common type for the selected bank.
   --validate / --no-validate    Validate output against schema before saving
                                 (default: validate)
   --help                        Show this message and exit.
@@ -85,7 +90,17 @@ Convert a Santander bank statement:
 transactions-chile convert santander.xlsx --bank santander
 ```
 
-Convert an Itau bank statement with a specific output file:
+Convert a Banco Chile credit card statement (default account type):
+```bash
+transactions-chile convert bancochile.xls --bank bancochile
+```
+
+Convert a Banco Chile checking account statement:
+```bash
+transactions-chile convert bancochile-cc.xls --bank bancochile --account-type checking
+```
+
+Convert an Itau credit card statement with a specific output file:
 ```bash
 transactions-chile convert itau.xls --bank itau --output-file itau-processed.csv
 ```

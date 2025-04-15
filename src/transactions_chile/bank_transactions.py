@@ -12,7 +12,7 @@ class BankTransactions(ABC):
         Initialize the BankTransactions class.
 
         Args:
-            transactions (pd.DataFrame, optional): DataFrame containing transactions. Defaults to None.
+            transactions (pd.DataFrame): DataFrame containing transactions.
             convert (bool, optional): Whether to convert the DataFrame format. Defaults to True.
         """
         self.transactions = transactions
@@ -170,7 +170,7 @@ class SantanderBankTransactions(BankTransactions):
 
 
 class ItauBankTransactions(BankTransactions, ABC):
-    """Class for handling transactions from Itau Bank."""
+    """Base class for handling transactions from Itau Bank."""
 
     @property
     def bank_name(self) -> str:
@@ -178,7 +178,7 @@ class ItauBankTransactions(BankTransactions, ABC):
 
 
 class ItauTCBankTransactions(ItauBankTransactions):
-    """Class for handling transactions from Itau Bank."""
+    """Class for handling transactions from Itau Bank Tarjeta de Crédito."""
 
     @property
     def account_type(self) -> str:
@@ -225,7 +225,7 @@ class ItauTCBankTransactions(ItauBankTransactions):
 
 
 class ItauCCBankTransactions(ItauBankTransactions):
-    """Class for handling transactions from Itau Bank."""
+    """Class for handling transactions from Itau Bank Cuenta Corriente."""
 
     @property
     def account_type(self) -> str:
@@ -275,7 +275,7 @@ class ItauCCBankTransactions(ItauBankTransactions):
 
 
 class BancoChileBankTransactions(BankTransactions, ABC):
-    """Class for handling transactions from Banco Chile."""
+    """Base class for handling transactions from Banco Chile."""
 
     @property
     def bank_name(self) -> str:

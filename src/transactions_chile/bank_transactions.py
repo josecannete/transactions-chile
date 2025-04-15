@@ -220,12 +220,16 @@ class ItauBankTransactions(BankTransactions):
         ]
 
 
-class BancoChileBankTransactions(BankTransactions):
+class BancoChileBankTransactions(BankTransactions, ABC):
     """Class for handling transactions from Banco Chile."""
 
     @property
     def bank_name(self) -> str:
         return "Banco de Chile"
+
+
+class BancoChileTCBankTransactions(BancoChileBankTransactions):
+    """Class for handling transactions from Banco Chile Tarjeta de Crédito."""
 
     @property
     def account_type(self) -> str:
@@ -264,6 +268,56 @@ class BancoChileBankTransactions(BankTransactions):
         transactions_df["amount"] = -transactions_df["Unnamed: 10"]
         transactions_df["city"] = transactions_df["Ciudad"]
         transactions_df["balance"] = 0
+        return transactions_df[
+            ["date", "imported_payee", "description", "amount", "city", "balance"]
+        ]
+
+
+class BancoChileCCBankTransactions(BancoChileBankTransactions):
+    """Class for handling transactions from Banco Chile Cuenta Corriente."""
+
+    @property
+    def account_type(self) -> str:
+        return "Cuenta Corriente"
+
+    @classmethod
+    def from_excel(cls, input_file: str, sheet_name: int = 0) -> Self:
+        """
+        Read transactions from a Banco Chile Excel file.
+
+        Args:
+            input_file (str): Path to the Excel file.
+            sheet_name (int, optional): Sheet index to read from. Defaults to 0.
+
+        Returns:
+            Self: Instance with loaded transactions.
+        """
+        transactions_df = pd.read_excel(
+            input_file, sheet_name=sheet_name, skiprows=26, skipfooter=7
+        )
+        return cls(transactions_df, convert=True)
+
+    def _convert_dataframe(self, transactions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Convert Banco Chile transactions format to standard format.
+
+        Args:
+            transactions_df (pd.DataFrame): Original Banco Chile transactions.
+
+        Returns:
+            pd.DataFrame: Standardized transactions.
+        """
+        transactions_df["date"] = pd.to_datetime(
+            transactions_df["Fecha"], format="%d/%m/%Y"
+        )
+        transactions_df["description"] = transactions_df["Descripción"]
+        transactions_df["imported_payee"] = transactions_df["Descripción"]
+        transactions_df["amount"] = transactions_df["Abonos (CLP)"].fillna(
+            0
+        ) - transactions_df["Cargos (CLP)"].fillna(0)
+        transactions_df["amount"] = transactions_df["amount"].astype(int)
+        transactions_df["city"] = transactions_df["Canal o Sucursal"]
+        transactions_df["balance"] = transactions_df["Saldo (CLP)"]
         return transactions_df[
             ["date", "imported_payee", "description", "amount", "city", "balance"]
         ]

@@ -53,7 +53,7 @@ jobs:
           name: python-package-distributions
           path: dist/
 
-  publish-to-test-pypi:
+  publish-to-pypi:
     name: >-
       Publish Python 🐍 distribution 📦 to PyPI
     # if: startsWith(github.ref, 'refs/tags/') # only publish to PyPI on tag pushes
@@ -61,8 +61,8 @@ jobs:
       - build
     runs-on: ubuntu-latest
     environment:
-      name: testpypi
-      url: https://test.pypi.org/p/transactions-chile # Replace <package-name> with your PyPI project name
+      name: pypi
+      url: https://pypi.org/p/transactions-chile # Replace <package-name> with your PyPI project name
     permissions:
       id-token: write # IMPORTANT: mandatory for trusted publishing
     steps:
@@ -73,5 +73,3 @@ jobs:
           path: dist/
       - name: Publish distribution 📦 to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/

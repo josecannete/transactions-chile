@@ -11,17 +11,44 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from .bank_transactions import (
     SantanderBankTransactions,
     ItauBankTransactions,
-    BancoChileBankTransactions,
+    BancoChileTCBankTransactions,
+    BancoChileCCBankTransactions,
 )
 from .schemas import BankTransactionsSchema
 
 console = Console()
 
-# Map of supported banks to their respective classes
+# Define account type constants
+ACCOUNT_TYPE_CHECKING = "checking"
+ACCOUNT_TYPE_CREDIT = "credit"
+
+# Map of supported banks and account types to their respective classes
 BANK_CLASSES = {
-    "santander": SantanderBankTransactions,
-    "itau": ItauBankTransactions,
-    "bancochile": BancoChileBankTransactions,
+    "santander": {
+        ACCOUNT_TYPE_CHECKING: SantanderBankTransactions,
+    },
+    "itau": {
+        ACCOUNT_TYPE_CREDIT: ItauBankTransactions,
+    },
+    "bancochile": {
+        ACCOUNT_TYPE_CREDIT: BancoChileTCBankTransactions,
+        ACCOUNT_TYPE_CHECKING: BancoChileCCBankTransactions,
+    },
+}
+
+# List of supported banks (for CLI choices)
+SUPPORTED_BANKS = list(BANK_CLASSES.keys())
+
+# Get supported account types for each bank
+SUPPORTED_ACCOUNT_TYPES = {
+    bank: list(account_types.keys()) for bank, account_types in BANK_CLASSES.items()
+}
+
+# Default account type for each bank
+DEFAULT_ACCOUNT_TYPES = {
+    "santander": ACCOUNT_TYPE_CHECKING,
+    "itau": ACCOUNT_TYPE_CREDIT,
+    "bancochile": ACCOUNT_TYPE_CREDIT,
 }
 
 
@@ -68,9 +95,18 @@ def cli():
 @click.option(
     "--bank",
     "-b",
-    type=click.Choice(list(BANK_CLASSES.keys()), case_sensitive=False),
+    type=click.Choice(SUPPORTED_BANKS, case_sensitive=False),
     help="Bank type (santander, itau, bancochile)",
     required=True,
+)
+@click.option(
+    "--account-type",
+    "-a",
+    type=click.Choice(
+        [ACCOUNT_TYPE_CHECKING, ACCOUNT_TYPE_CREDIT], case_sensitive=False
+    ),
+    help="Account type (checking for 'Cuenta Corriente', credit for 'Tarjeta de Crédito'). "
+    "If not specified, defaults to the most common type for the selected bank.",
 )
 @click.option(
     "--validate/--no-validate",
@@ -78,7 +114,15 @@ def cli():
     help="Validate output against schema before saving (default: validate)",
 )
 def convert(
-    input_file, output_file, sheet_name, delimiter, encoding, force, bank, validate
+    input_file,
+    output_file,
+    sheet_name,
+    delimiter,
+    encoding,
+    force,
+    bank,
+    account_type,
+    validate,
 ):
     """Convert an Excel file to CSV format using specific bank transaction processors.
 
@@ -99,16 +143,33 @@ def convert(
                 console.print("[bold red]Operation cancelled.[/bold red]")
                 return 1
 
+        # Use default account type if not specified
+        if account_type is None:
+            account_type = DEFAULT_ACCOUNT_TYPES[bank.lower()]
+
         # Get the appropriate bank transaction class
-        bank_class = BANK_CLASSES.get(bank.lower())
-        if not bank_class:
+        bank_key = bank.lower()
+        account_type_key = account_type.lower()
+
+        if bank_key not in BANK_CLASSES:
             console.print(f"[bold red]Error:[/bold red] Unsupported bank type: {bank}")
             return 1
+
+        if account_type_key not in BANK_CLASSES[bank_key]:
+            console.print(
+                f"[bold red]Error:[/bold red] Unsupported account type '{account_type}' for bank '{bank}'"
+            )
+            console.print(
+                f"Supported account types for {bank}: {', '.join(SUPPORTED_ACCOUNT_TYPES[bank_key])}"
+            )
+            return 1
+
+        bank_class = BANK_CLASSES[bank_key][account_type_key]
 
         with Progress(
             SpinnerColumn(),
             TextColumn(
-                f"[bold blue]Processing {bank.title()} transactions...[/bold blue]"
+                f"[bold blue]Processing {bank.title()} {account_type} transactions...[/bold blue]"
             ),
             transient=True,
         ) as progress:
@@ -162,8 +223,12 @@ def convert(
 def supported_banks():
     """List all supported banks."""
     console.print("[bold cyan]Supported Banks:[/bold cyan]")
-    for bank in BANK_CLASSES.keys():
-        console.print(f"  • {bank.title()}")
+    for bank in SUPPORTED_BANKS:
+        account_types = SUPPORTED_ACCOUNT_TYPES[bank]
+        account_types_str = ", ".join(account_types)
+        console.print(
+            f"  • {bank.title()} [Supported account types: {account_types_str}]"
+        )
     return 0
 
 

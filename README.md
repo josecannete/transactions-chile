@@ -1,11 +1,15 @@
-# Transactions Chile - Excel to CSV Converter
+# Transactions Chile
 
-A command-line tool for converting Excel files to CSV format with various customization options.
+A command-line tool for converting bank statements from Excel to CSV format with support for several Chilean banks.
 
 ## Features
 
-- Convert Excel (.xlsx, .xls) files to CSV format
-- Specify which sheet to convert
+- Convert bank statements from Excel (.xlsx, .xls) files to CSV format
+- Support for multiple banks:
+  - Santander
+  - Itau
+  - Banco Chile
+- Validation of transaction data
 - Customize delimiter and encoding
 - Rich command-line interface with progress indicators
 - Force overwrite option
@@ -30,72 +34,80 @@ pip install -e .
 
 ## Usage
 
-You can use the tool in two ways:
+Once installed, you can use the tool in the following ways:
 
-### As a CLI command
+### Convert bank statements
 
-Once installed, you can use the `excel2csv` command directly:
+Convert a bank statement from Excel to CSV:
 
 ```bash
-excel2csv path/to/your/file.xlsx -o output.csv
+transactions-chile convert path/to/your/bank-statement.xlsx --bank santander
 ```
 
-### From Python code
+### List supported banks
 
-```python
-from transactions_chile import convert_excel_to_csv
+View all supported banks:
 
-result = convert_excel_to_csv(
-    input_file="path/to/your/file.xlsx",
-    output_file="output.csv",
-    sheet=0,  # First sheet (0-based index)
-    delimiter=",",
-    encoding="utf-8"
-)
+```bash
+transactions-chile supported-banks
 ```
 
 ## Command Line Options
 
 ```
-Usage: excel2csv [OPTIONS] INPUT_FILE
+Usage: transactions-chile convert [OPTIONS] INPUT_FILE
 
-  Convert an Excel file to CSV format.
+  Convert an Excel file to CSV format using specific bank transaction processors.
 
   INPUT_FILE: Path to the Excel file to convert.
 
 Options:
-  -o, --output-file PATH       Output CSV file path. If not specified, will use
-                               the input filename with .csv extension.
-  -s, --sheet TEXT             Sheet name or index (0-based) to convert.
-                               Defaults to first sheet.
-  -d, --delimiter TEXT         Delimiter to use in the CSV file. Defaults to
-                               comma.
-  -e, --encoding TEXT          Encoding for the output CSV file. Defaults to
-                               utf-8.
-  -f, --force                  Overwrite output file if it already exists.
-  --help                       Show this message and exit.
+  -o, --output-file PATH        Output CSV file path. If not specified, will use
+                                the input filename with .csv extension.
+  -s, --sheet-name TEXT         Sheet name or index (0-based) to convert.
+                                Defaults to first sheet.
+  -d, --delimiter TEXT          Delimiter to use in the CSV file. Defaults to
+                                comma.
+  -e, --encoding TEXT           Encoding for the output CSV file. Defaults to
+                                utf-8.
+  -f, --force                   Overwrite output file if it already exists.
+  -b, --bank [santander|itau|bancochile]
+                                Bank type (required)
+  --validate / --no-validate    Validate output against schema before saving
+                                (default: validate)
+  --help                        Show this message and exit.
 ```
 
 ## Examples
 
-Convert the first sheet of an Excel file:
+Convert a Santander bank statement:
 ```bash
-excel2csv data.xlsx
+transactions-chile convert santander.xlsx --bank santander
 ```
 
-Convert a specific sheet by name:
+Convert an Itau bank statement with a specific output file:
 ```bash
-excel2csv data.xlsx --sheet "Sales Data"
+transactions-chile convert itau.xls --bank itau --output-file itau-processed.csv
+```
+
+Convert a Banco Chile statement with a specific sheet:
+```bash
+transactions-chile convert bancochile.xlsx --bank bancochile --sheet-name "Movimientos"
 ```
 
 Use a different delimiter:
 ```bash
-excel2csv data.xlsx --delimiter ";" --output-file data_semicolon.csv
+transactions-chile convert santander.xlsx --bank santander --delimiter ";" --output-file santander_semicolon.csv
 ```
 
 Force overwrite of existing file:
 ```bash
-excel2csv data.xlsx -f
+transactions-chile convert itau.xlsx --bank itau -f
+```
+
+Skip validation:
+```bash
+transactions-chile convert bancochile.xlsx --bank bancochile --no-validate
 ```
 
 ## Development

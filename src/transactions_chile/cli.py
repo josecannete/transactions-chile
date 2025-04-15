@@ -25,7 +25,15 @@ BANK_CLASSES = {
 }
 
 
-@click.command()
+@click.group()
+def cli():
+    """
+    Transactions Chile - Convert bank statements from Excel to CSV format.
+    """
+    pass
+
+
+@cli.command(name="convert")
 @click.argument("input_file", type=click.Path(exists=True))
 @click.option(
     "--output-file",
@@ -69,7 +77,7 @@ BANK_CLASSES = {
     default=True,
     help="Validate output against schema before saving (default: validate)",
 )
-def main(
+def convert(
     input_file, output_file, sheet_name, delimiter, encoding, force, bank, validate
 ):
     """Convert an Excel file to CSV format using specific bank transaction processors.
@@ -148,6 +156,24 @@ def main(
         return 1
 
     return 0
+
+
+@cli.command(name="supported-banks")
+def supported_banks():
+    """List all supported banks."""
+    console.print("[bold cyan]Supported Banks:[/bold cyan]")
+    for bank in BANK_CLASSES.keys():
+        console.print(f"  • {bank.title()}")
+    return 0
+
+
+def main():
+    """Entry point for the CLI."""
+    try:
+        return cli()
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {str(e)}")
+        return 1
 
 
 if __name__ == "__main__":

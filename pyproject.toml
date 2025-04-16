@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "transactions_chile"
-version = "0.1.0"
+version = "0.2.0"
 description = "A command-line tool for converting bank statements from Excel to CSV format with support for several Chilean banks."
 readme = "README.md"
 requires-python = ">=3.9"

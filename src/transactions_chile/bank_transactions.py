@@ -1,7 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Self
+from typing import Self, Dict, Any
 import pandera as pa
 import pandas as pd
+
+
+STANDARD_COLUMNS = ["date", "payee", "description", "amount", "city", "balance"]
 
 
 class BankTransactions(ABC):
@@ -42,10 +45,19 @@ class BankTransactions(ABC):
         pass
 
     @classmethod
-    @abstractmethod
+    def get_excel_parameters(cls) -> Dict[str, Any]:
+        """
+        Get bank-specific Excel loading parameters.
+
+        Returns:
+            Dict[str, Any]: Parameters to pass to pd.read_excel
+        """
+        return {}
+
+    @classmethod
     def from_excel(cls, input_file: str, sheet_name: int = 0) -> Self:
         """
-        Read transactions from an Excel file.
+        Read transactions from an Excel file using bank-specific parameters.
 
         Args:
             input_file (str): Path to the Excel file.
@@ -54,7 +66,11 @@ class BankTransactions(ABC):
         Returns:
             Self: Instance of the class with loaded transactions.
         """
-        pass
+        excel_params = cls.get_excel_parameters()
+        transactions_df = pd.read_excel(
+            input_file, sheet_name=sheet_name, **excel_params
+        )
+        return cls(transactions_df, convert=True)
 
     def to_csv(
         self, output_file: str, delimiter: str = ",", encoding: str = "utf-8"
@@ -114,33 +130,30 @@ class BankTransactions(ABC):
         return False
 
 
-class SantanderBankTransactions(BankTransactions):
-    """Class for handling transactions from Santander Bank."""
+class SantanderBankTransactions(BankTransactions, ABC):
+    """Base class for handling transactions from Santander Bank."""
 
     @property
     def bank_name(self) -> str:
         return "Santander"
+
+
+class SantanderCheckingAccountBankTransactions(SantanderBankTransactions):
+    """Class for handling transactions from Santander Bank Checking Account."""
 
     @property
     def account_type(self) -> str:
         return "Checking Account"
 
     @classmethod
-    def from_excel(cls, input_file: str, sheet_name: int = 0) -> Self:
+    def get_excel_parameters(cls) -> Dict[str, Any]:
         """
-        Read transactions from a Santander Bank Excel file.
-
-        Args:
-            input_file (str): Path to the Excel file.
-            sheet_name (int, optional): Sheet index to read from. Defaults to 0.
+        Get Santander-specific Excel loading parameters.
 
         Returns:
-            Self: Instance with loaded transactions.
+            Dict[str, Any]: Parameters to pass to pd.read_excel
         """
-        transactions_df = pd.read_excel(
-            input_file, sheet_name=sheet_name, skiprows=1, header=1
-        )
-        return cls(transactions_df, convert=True)
+        return {"skiprows": 1, "header": 1}
 
     def _convert_dataframe(self, transactions_df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -160,13 +173,11 @@ class SantanderBankTransactions(BankTransactions):
             transactions_df["Fecha"], format="%d-%m-%Y"
         )
         transactions_df["description"] = transactions_df["Detalle"]
-        transactions_df["imported_payee"] = transactions_df["description"]
+        transactions_df["payee"] = transactions_df["description"]
         transactions_df["balance"] = transactions_df["Saldo ($)"]
         transactions_df["city"] = ""
 
-        return transactions_df[
-            ["date", "imported_payee", "description", "amount", "balance", "city"]
-        ]
+        return transactions_df[STANDARD_COLUMNS]
 
 
 class ItauBankTransactions(BankTransactions, ABC):
@@ -185,21 +196,14 @@ class ItauCreditCardBankTransactions(ItauBankTransactions):
         return "Credit Card"
 
     @classmethod
-    def from_excel(cls, input_file: str, sheet_name: int = 0) -> Self:
+    def get_excel_parameters(cls) -> Dict[str, Any]:
         """
-        Read transactions from an Itau Bank Excel file.
-
-        Args:
-            input_file (str): Path to the Excel file.
-            sheet_name (int, optional): Sheet index to read from. Defaults to 0.
+        Get Itau Credit Card-specific Excel loading parameters.
 
         Returns:
-            Self: Instance with loaded transactions.
+            Dict[str, Any]: Parameters to pass to pd.read_excel
         """
-        transactions_df = pd.read_excel(
-            input_file, sheet_name=sheet_name, skiprows=9, skipfooter=5
-        )
-        return cls(transactions_df, convert=True)
+        return {"skiprows": 9, "skipfooter": 5}
 
     def _convert_dataframe(self, transactions_df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -215,13 +219,11 @@ class ItauCreditCardBankTransactions(ItauBankTransactions):
             transactions_df["Fecha compra"], format="%Y-%m-%d"
         )
         transactions_df["description"] = transactions_df["Descripción"]
-        transactions_df["imported_payee"] = transactions_df["Descripción"]
+        transactions_df["payee"] = transactions_df["Descripción"]
         transactions_df["amount"] = -transactions_df["Monto"]
         transactions_df["city"] = transactions_df["Ciudad"]
         transactions_df["balance"] = 0
-        return transactions_df[
-            ["date", "imported_payee", "description", "amount", "city", "balance"]
-        ]
+        return transactions_df[STANDARD_COLUMNS]
 
 
 class ItauCheckingAccountBankTransactions(ItauBankTransactions):
@@ -232,21 +234,14 @@ class ItauCheckingAccountBankTransactions(ItauBankTransactions):
         return "Checking Account"
 
     @classmethod
-    def from_excel(cls, input_file: str, sheet_name: int = 0) -> Self:
+    def get_excel_parameters(cls) -> Dict[str, Any]:
         """
-        Read transactions from an Itau Bank Excel file.
-
-        Args:
-            input_file (str): Path to the Excel file.
-            sheet_name (int, optional): Sheet index to read from. Defaults to 0.
+        Get Itau Checking Account-specific Excel loading parameters.
 
         Returns:
-            Self: Instance with loaded transactions.
+            Dict[str, Any]: Parameters to pass to pd.read_excel
         """
-        transactions_df = pd.read_excel(
-            input_file, sheet_name=sheet_name, skiprows=10, skipfooter=5
-        )
-        return cls(transactions_df, convert=True)
+        return {"skiprows": 10, "skipfooter": 5}
 
     def _convert_dataframe(self, transactions_df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -262,16 +257,14 @@ class ItauCheckingAccountBankTransactions(ItauBankTransactions):
             transactions_df["Fecha"], format="%Y-%m-%d"
         )
         transactions_df["description"] = transactions_df["Movimientos"]
-        transactions_df["imported_payee"] = transactions_df["Movimientos"]
+        transactions_df["payee"] = transactions_df["Movimientos"]
         transactions_df["amount"] = transactions_df["Abonos"].fillna(
             0
         ) - transactions_df["Cargos"].fillna(0)
         transactions_df["amount"] = transactions_df["amount"].astype(int)
         transactions_df["city"] = ""
         transactions_df["balance"] = transactions_df["Saldo"]
-        return transactions_df[
-            ["date", "imported_payee", "description", "amount", "city", "balance"]
-        ]
+        return transactions_df[STANDARD_COLUMNS]
 
 
 class BancoChileBankTransactions(BankTransactions, ABC):
@@ -290,19 +283,14 @@ class BancoChileCreditCardBankTransactions(BancoChileBankTransactions):
         return "Credit Card"
 
     @classmethod
-    def from_excel(cls, input_file: str, sheet_name: int = 0) -> Self:
+    def get_excel_parameters(cls) -> Dict[str, Any]:
         """
-        Read transactions from a Banco Chile Excel file.
-
-        Args:
-            input_file (str): Path to the Excel file.
-            sheet_name (int, optional): Sheet index to read from. Defaults to 0.
+        Get Banco Chile Credit Card-specific Excel loading parameters.
 
         Returns:
-            Self: Instance with loaded transactions.
+            Dict[str, Any]: Parameters to pass to pd.read_excel
         """
-        transactions_df = pd.read_excel(input_file, sheet_name=sheet_name, skiprows=17)
-        return cls(transactions_df, convert=True)
+        return {"skiprows": 17}
 
     def _convert_dataframe(self, transactions_df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -318,13 +306,11 @@ class BancoChileCreditCardBankTransactions(BancoChileBankTransactions):
             transactions_df["Fecha"], format="%d/%m/%Y"
         )
         transactions_df["description"] = transactions_df["Descripción"]
-        transactions_df["imported_payee"] = transactions_df["Descripción"]
+        transactions_df["payee"] = transactions_df["Descripción"]
         transactions_df["amount"] = -transactions_df["Unnamed: 10"]
         transactions_df["city"] = transactions_df["Ciudad"]
         transactions_df["balance"] = 0
-        return transactions_df[
-            ["date", "imported_payee", "description", "amount", "city", "balance"]
-        ]
+        return transactions_df[STANDARD_COLUMNS]
 
 
 class BancoChileCheckingAccountBankTransactions(BancoChileBankTransactions):
@@ -335,21 +321,14 @@ class BancoChileCheckingAccountBankTransactions(BancoChileBankTransactions):
         return "Checking Account"
 
     @classmethod
-    def from_excel(cls, input_file: str, sheet_name: int = 0) -> Self:
+    def get_excel_parameters(cls) -> Dict[str, Any]:
         """
-        Read transactions from a Banco Chile Excel file.
-
-        Args:
-            input_file (str): Path to the Excel file.
-            sheet_name (int, optional): Sheet index to read from. Defaults to 0.
+        Get Banco Chile Checking Account-specific Excel loading parameters.
 
         Returns:
-            Self: Instance with loaded transactions.
+            Dict[str, Any]: Parameters to pass to pd.read_excel
         """
-        transactions_df = pd.read_excel(
-            input_file, sheet_name=sheet_name, skiprows=26, skipfooter=7
-        )
-        return cls(transactions_df, convert=True)
+        return {"skiprows": 26, "skipfooter": 7}
 
     def _convert_dataframe(self, transactions_df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -365,13 +344,11 @@ class BancoChileCheckingAccountBankTransactions(BancoChileBankTransactions):
             transactions_df["Fecha"], format="%d/%m/%Y"
         )
         transactions_df["description"] = transactions_df["Descripción"]
-        transactions_df["imported_payee"] = transactions_df["Descripción"]
+        transactions_df["payee"] = transactions_df["Descripción"]
         transactions_df["amount"] = transactions_df["Abonos (CLP)"].fillna(
             0
         ) - transactions_df["Cargos (CLP)"].fillna(0)
         transactions_df["amount"] = transactions_df["amount"].astype(int)
         transactions_df["city"] = transactions_df["Canal o Sucursal"]
         transactions_df["balance"] = transactions_df["Saldo (CLP)"]
-        return transactions_df[
-            ["date", "imported_payee", "description", "amount", "city", "balance"]
-        ]
+        return transactions_df[STANDARD_COLUMNS]

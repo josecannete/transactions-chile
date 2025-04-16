@@ -9,7 +9,7 @@ import click
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from .bank_transactions import (
-    SantanderBankTransactions,
+    SantanderCheckingAccountBankTransactions,
     ItauCreditCardBankTransactions,
     ItauCheckingAccountBankTransactions,
     BancoChileCreditCardBankTransactions,
@@ -26,7 +26,7 @@ ACCOUNT_TYPE_CREDIT = "credit"
 # Map of supported banks and account types to their respective classes
 BANK_CLASSES = {
     "santander": {
-        ACCOUNT_TYPE_CHECKING: SantanderBankTransactions,
+        ACCOUNT_TYPE_CHECKING: SantanderCheckingAccountBankTransactions,
     },
     "itau": {
         ACCOUNT_TYPE_CREDIT: ItauCreditCardBankTransactions,

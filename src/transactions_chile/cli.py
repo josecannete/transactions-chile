@@ -10,10 +10,10 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from .bank_transactions import (
     SantanderBankTransactions,
-    ItauTCBankTransactions,
-    ItauCCBankTransactions,
-    BancoChileTCBankTransactions,
-    BancoChileCCBankTransactions,
+    ItauCreditCardBankTransactions,
+    ItauCheckingAccountBankTransactions,
+    BancoChileCreditCardBankTransactions,
+    BancoChileCheckingAccountBankTransactions,
 )
 from .schemas import BankTransactionsSchema
 
@@ -29,12 +29,12 @@ BANK_CLASSES = {
         ACCOUNT_TYPE_CHECKING: SantanderBankTransactions,
     },
     "itau": {
-        ACCOUNT_TYPE_CREDIT: ItauTCBankTransactions,
-        ACCOUNT_TYPE_CHECKING: ItauCCBankTransactions,
+        ACCOUNT_TYPE_CREDIT: ItauCreditCardBankTransactions,
+        ACCOUNT_TYPE_CHECKING: ItauCheckingAccountBankTransactions,
     },
     "bancochile": {
-        ACCOUNT_TYPE_CREDIT: BancoChileTCBankTransactions,
-        ACCOUNT_TYPE_CHECKING: BancoChileCCBankTransactions,
+        ACCOUNT_TYPE_CREDIT: BancoChileCreditCardBankTransactions,
+        ACCOUNT_TYPE_CHECKING: BancoChileCheckingAccountBankTransactions,
     },
 }
 

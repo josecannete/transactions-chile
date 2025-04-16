@@ -123,7 +123,7 @@ class SantanderBankTransactions(BankTransactions):
 
     @property
     def account_type(self) -> str:
-        return "Cuenta Corriente"
+        return "Checking Account"
 
     @classmethod
     def from_excel(cls, input_file: str, sheet_name: int = 0) -> Self:
@@ -177,12 +177,12 @@ class ItauBankTransactions(BankTransactions, ABC):
         return "Itau"
 
 
-class ItauTCBankTransactions(ItauBankTransactions):
-    """Class for handling transactions from Itau Bank Tarjeta de Crédito."""
+class ItauCreditCardBankTransactions(ItauBankTransactions):
+    """Class for handling transactions from Itau Bank Credit Card."""
 
     @property
     def account_type(self) -> str:
-        return "Tarjeta de Crédito"
+        return "Credit Card"
 
     @classmethod
     def from_excel(cls, input_file: str, sheet_name: int = 0) -> Self:
@@ -224,12 +224,12 @@ class ItauTCBankTransactions(ItauBankTransactions):
         ]
 
 
-class ItauCCBankTransactions(ItauBankTransactions):
-    """Class for handling transactions from Itau Bank Cuenta Corriente."""
+class ItauCheckingAccountBankTransactions(ItauBankTransactions):
+    """Class for handling transactions from Itau Bank Checking Account."""
 
     @property
     def account_type(self) -> str:
-        return "Cuenta Corriente"
+        return "Checking Account"
 
     @classmethod
     def from_excel(cls, input_file: str, sheet_name: int = 0) -> Self:
@@ -282,12 +282,12 @@ class BancoChileBankTransactions(BankTransactions, ABC):
         return "Banco de Chile"
 
 
-class BancoChileTCBankTransactions(BancoChileBankTransactions):
-    """Class for handling transactions from Banco Chile Tarjeta de Crédito."""
+class BancoChileCreditCardBankTransactions(BancoChileBankTransactions):
+    """Class for handling transactions from Banco Chile Credit Card."""
 
     @property
     def account_type(self) -> str:
-        return "Tarjeta de Crédito"
+        return "Credit Card"
 
     @classmethod
     def from_excel(cls, input_file: str, sheet_name: int = 0) -> Self:
@@ -327,12 +327,12 @@ class BancoChileTCBankTransactions(BancoChileBankTransactions):
         ]
 
 
-class BancoChileCCBankTransactions(BancoChileBankTransactions):
-    """Class for handling transactions from Banco Chile Cuenta Corriente."""
+class BancoChileCheckingAccountBankTransactions(BancoChileBankTransactions):
+    """Class for handling transactions from Banco Chile Checking Account."""
 
     @property
     def account_type(self) -> str:
-        return "Cuenta Corriente"
+        return "Checking Account"
 
     @classmethod
     def from_excel(cls, input_file: str, sheet_name: int = 0) -> Self:

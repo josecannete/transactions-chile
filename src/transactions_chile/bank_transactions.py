@@ -7,6 +7,78 @@ import pandas as pd
 STANDARD_COLUMNS = ["date", "payee", "description", "amount", "city", "balance"]
 
 
+class SantanderBankMixin:
+    @property
+    def bank_name(self) -> str:
+        return "Santander"
+
+
+class ItauBankMixin:
+    @property
+    def bank_name(self) -> str:
+        return "Itau"
+
+
+class BancoChileBankMixin:
+    @property
+    def bank_name(self) -> str:
+        return "Banco de Chile"
+
+
+class CheckingAccountMixin:
+    @property
+    def account_type(self) -> str:
+        return "Checking Account"
+
+
+class CreditCardMixin:
+    @property
+    def account_type(self) -> str:
+        return "Credit Card"
+
+    @property
+    def is_billed(self) -> bool:
+        """
+        Determine if the credit card transactions are billed or unbilled.
+
+        Returns:
+            bool: True for billed transactions, False for unbilled
+        """
+        return True  # Default implementation, will be overridden
+
+
+class BilledCreditCardMixin(CreditCardMixin):
+    """Mixin for billed credit card transactions."""
+
+    @property
+    def account_subtype(self) -> str:
+        return "Billed"
+
+    @property
+    def account_type(self) -> str:
+        return f"{super().account_type} (Billed)"
+
+    @property
+    def is_billed(self) -> bool:
+        return True
+
+
+class UnbilledCreditCardMixin(CreditCardMixin):
+    """Mixin for unbilled (pending) credit card transactions."""
+
+    @property
+    def account_subtype(self) -> str:
+        return "Unbilled"
+
+    @property
+    def account_type(self) -> str:
+        return f"{super().account_type} (Unbilled)"
+
+    @property
+    def is_billed(self) -> bool:
+        return False
+
+
 class BankTransactions(ABC):
     """Base class for handling bank transactions."""
 
@@ -130,20 +202,10 @@ class BankTransactions(ABC):
         return False
 
 
-class SantanderBankTransactions(BankTransactions, ABC):
-    """Base class for handling transactions from Santander Bank."""
-
-    @property
-    def bank_name(self) -> str:
-        return "Santander"
-
-
-class SantanderCheckingAccountBankTransactions(SantanderBankTransactions):
+class SantanderCheckingAccountBankTransactions(
+    SantanderBankMixin, CheckingAccountMixin, BankTransactions
+):
     """Class for handling transactions from Santander Bank Checking Account."""
-
-    @property
-    def account_type(self) -> str:
-        return "Checking Account"
 
     @classmethod
     def get_excel_parameters(cls) -> Dict[str, Any]:
@@ -180,58 +242,10 @@ class SantanderCheckingAccountBankTransactions(SantanderBankTransactions):
         return transactions_df[STANDARD_COLUMNS]
 
 
-class ItauBankTransactions(BankTransactions, ABC):
-    """Base class for handling transactions from Itau Bank."""
-
-    @property
-    def bank_name(self) -> str:
-        return "Itau"
-
-
-class ItauCreditCardBankTransactions(ItauBankTransactions):
-    """Class for handling transactions from Itau Bank Credit Card."""
-
-    @property
-    def account_type(self) -> str:
-        return "Credit Card"
-
-    @classmethod
-    def get_excel_parameters(cls) -> Dict[str, Any]:
-        """
-        Get Itau Credit Card-specific Excel loading parameters.
-
-        Returns:
-            Dict[str, Any]: Parameters to pass to pd.read_excel
-        """
-        return {"skiprows": 9, "skipfooter": 5}
-
-    def _convert_dataframe(self, transactions_df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Convert Itau Bank transactions format to standard format.
-
-        Args:
-            transactions_df (pd.DataFrame): Original Itau transactions.
-
-        Returns:
-            pd.DataFrame: Standardized transactions.
-        """
-        transactions_df["date"] = pd.to_datetime(
-            transactions_df["Fecha compra"], format="%Y-%m-%d"
-        )
-        transactions_df["description"] = transactions_df["Descripción"]
-        transactions_df["payee"] = transactions_df["Descripción"]
-        transactions_df["amount"] = -transactions_df["Monto"]
-        transactions_df["city"] = transactions_df["Ciudad"]
-        transactions_df["balance"] = 0
-        return transactions_df[STANDARD_COLUMNS]
-
-
-class ItauCheckingAccountBankTransactions(ItauBankTransactions):
+class ItauCheckingAccountBankTransactions(
+    ItauBankMixin, CheckingAccountMixin, BankTransactions
+):
     """Class for handling transactions from Itau Bank Checking Account."""
-
-    @property
-    def account_type(self) -> str:
-        return "Checking Account"
 
     @classmethod
     def get_excel_parameters(cls) -> Dict[str, Any]:
@@ -267,58 +281,10 @@ class ItauCheckingAccountBankTransactions(ItauBankTransactions):
         return transactions_df[STANDARD_COLUMNS]
 
 
-class BancoChileBankTransactions(BankTransactions, ABC):
-    """Base class for handling transactions from Banco Chile."""
-
-    @property
-    def bank_name(self) -> str:
-        return "Banco de Chile"
-
-
-class BancoChileCreditCardBankTransactions(BancoChileBankTransactions):
-    """Class for handling transactions from Banco Chile Credit Card."""
-
-    @property
-    def account_type(self) -> str:
-        return "Credit Card"
-
-    @classmethod
-    def get_excel_parameters(cls) -> Dict[str, Any]:
-        """
-        Get Banco Chile Credit Card-specific Excel loading parameters.
-
-        Returns:
-            Dict[str, Any]: Parameters to pass to pd.read_excel
-        """
-        return {"skiprows": 17}
-
-    def _convert_dataframe(self, transactions_df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Convert Banco Chile transactions format to standard format.
-
-        Args:
-            transactions_df (pd.DataFrame): Original Banco Chile transactions.
-
-        Returns:
-            pd.DataFrame: Standardized transactions.
-        """
-        transactions_df["date"] = pd.to_datetime(
-            transactions_df["Fecha"], format="%d/%m/%Y"
-        )
-        transactions_df["description"] = transactions_df["Descripción"]
-        transactions_df["payee"] = transactions_df["Descripción"]
-        transactions_df["amount"] = -transactions_df["Unnamed: 10"]
-        transactions_df["city"] = transactions_df["Ciudad"]
-        transactions_df["balance"] = 0
-        return transactions_df[STANDARD_COLUMNS]
-
-
-class BancoChileCheckingAccountBankTransactions(BancoChileBankTransactions):
+class BancoChileCheckingAccountBankTransactions(
+    BancoChileBankMixin, CheckingAccountMixin, BankTransactions
+):
     """Class for handling transactions from Banco Chile Checking Account."""
-
-    @property
-    def account_type(self) -> str:
-        return "Checking Account"
 
     @classmethod
     def get_excel_parameters(cls) -> Dict[str, Any]:
@@ -351,4 +317,153 @@ class BancoChileCheckingAccountBankTransactions(BancoChileBankTransactions):
         transactions_df["amount"] = transactions_df["amount"].astype(int)
         transactions_df["city"] = transactions_df["Canal o Sucursal"]
         transactions_df["balance"] = transactions_df["Saldo (CLP)"]
+        return transactions_df[STANDARD_COLUMNS]
+
+
+class ItauBilledCreditCardBankTransactions(
+    ItauBankMixin, BilledCreditCardMixin, BankTransactions
+):
+    """Class for handling billed transactions from Itau Bank Credit Card."""
+
+    @classmethod
+    def get_excel_parameters(cls) -> Dict[str, Any]:
+        """
+        Get Itau Billed Credit Card-specific Excel loading parameters.
+
+        Returns:
+            Dict[str, Any]: Parameters to pass to pd.read_excel
+        """
+        return {"skiprows": list(range(52)) + [53], "skipfooter": 35}
+
+    def _convert_dataframe(self, transactions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Convert Itau Bank billed credit card transactions format to standard format.
+
+        Args:
+            transactions_df (pd.DataFrame): Original Itau transactions.
+
+        Returns:
+            pd.DataFrame: Standardized transactions.
+        """
+        transactions_df.dropna(subset=["Monto operación"], inplace=True)
+        transactions_df["date"] = pd.to_datetime(
+            transactions_df["Fecha operación"], format="%Y-%m-%d"
+        )
+        transactions_df["description"] = transactions_df[
+            "Descripción operación o cobro"
+        ]
+        transactions_df["payee"] = transactions_df["Descripción operación o cobro"]
+        transactions_df["amount"] = -transactions_df["Monto operación"].astype(int)
+        transactions_df["city"] = transactions_df["Lugar de operación"]
+        transactions_df["balance"] = 0
+        return transactions_df[STANDARD_COLUMNS]
+
+
+class ItauUnbilledCreditCardBankTransactions(
+    ItauBankMixin, UnbilledCreditCardMixin, BankTransactions
+):
+    """Class for handling unbilled (pending) transactions from Itau Bank Credit Card."""
+
+    @classmethod
+    def get_excel_parameters(cls) -> Dict[str, Any]:
+        """
+        Get Itau Unbilled Credit Card-specific Excel loading parameters.
+
+        Returns:
+            Dict[str, Any]: Parameters to pass to pd.read_excel
+        """
+        return {"skiprows": 9, "skipfooter": 5}  # Same as the original implementation
+
+    def _convert_dataframe(self, transactions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Convert Itau Bank unbilled credit card transactions format to standard format.
+
+        Args:
+            transactions_df (pd.DataFrame): Original Itau unbilled transactions.
+
+        Returns:
+            pd.DataFrame: Standardized transactions.
+        """
+        # This is the original implementation from ItauCreditCardBankTransactions
+        transactions_df["date"] = pd.to_datetime(
+            transactions_df["Fecha compra"], format="%Y-%m-%d"
+        )
+        transactions_df["description"] = transactions_df["Descripción"]
+        transactions_df["payee"] = transactions_df["Descripción"]
+        transactions_df["amount"] = -transactions_df["Monto"]
+        transactions_df["city"] = transactions_df["Ciudad"]
+        transactions_df["balance"] = 0
+        return transactions_df[STANDARD_COLUMNS]
+
+
+class BancoChileBilledCreditCardBankTransactions(
+    BancoChileBankMixin, BilledCreditCardMixin, BankTransactions
+):
+    """Class for handling billed transactions from Banco Chile Credit Card."""
+
+    @classmethod
+    def get_excel_parameters(cls) -> Dict[str, Any]:
+        """
+        Get Banco Chile Billed Credit Card-specific Excel loading parameters.
+
+        Returns:
+            Dict[str, Any]: Parameters to pass to pd.read_excel
+        """
+        return {"skiprows": 17}
+
+    def _convert_dataframe(self, transactions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Convert Banco Chile billed credit card transactions format to standard format.
+
+        Args:
+            transactions_df (pd.DataFrame): Original Banco Chile transactions.
+
+        Returns:
+            pd.DataFrame: Standardized transactions.
+        """
+        transactions_df["date"] = pd.to_datetime(
+            transactions_df["Fecha"], format="%d/%m/%Y"
+        )
+        transactions_df["description"] = transactions_df["Descripción"]
+        transactions_df["payee"] = transactions_df["Descripción"]
+        transactions_df["amount"] = -transactions_df["Monto ($)"]
+        transactions_df["city"] = ""
+        transactions_df["balance"] = 0
+        return transactions_df[STANDARD_COLUMNS]
+
+
+class BancoChileUnbilledCreditCardBankTransactions(
+    BancoChileBankMixin, UnbilledCreditCardMixin, BankTransactions
+):
+    """Class for handling unbilled (pending) transactions from Banco Chile Credit Card."""
+
+    @classmethod
+    def get_excel_parameters(cls) -> Dict[str, Any]:
+        """
+        Get Banco Chile Unbilled Credit Card-specific Excel loading parameters.
+
+        Returns:
+            Dict[str, Any]: Parameters to pass to pd.read_excel
+        """
+        return {"skiprows": 17}  # Same as the original implementation
+
+    def _convert_dataframe(self, transactions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Convert Banco Chile unbilled credit card transactions format to standard format.
+
+        Args:
+            transactions_df (pd.DataFrame): Original Banco Chile unbilled transactions.
+
+        Returns:
+            pd.DataFrame: Standardized transactions.
+        """
+        # This is the original implementation from BancoChileCreditCardBankTransactions
+        transactions_df["date"] = pd.to_datetime(
+            transactions_df["Fecha"], format="%d/%m/%Y"
+        )
+        transactions_df["description"] = transactions_df["Descripción"]
+        transactions_df["payee"] = transactions_df["Descripción"]
+        transactions_df["amount"] = -transactions_df["Unnamed: 10"]
+        transactions_df["city"] = transactions_df["Ciudad"]
+        transactions_df["balance"] = 0
         return transactions_df[STANDARD_COLUMNS]

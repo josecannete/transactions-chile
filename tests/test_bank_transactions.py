@@ -28,6 +28,9 @@ from transactions_chile.bank_transactions import (
     BancoChileBilledCreditCardBankTransactions,
     BancoChileUnbilledCreditCardBankTransactions,
     BancoChileCheckingAccountBankTransactions,
+    BankTransactionsFactory,
+    Bank,
+    AccountType,
     STANDARD_COLUMNS,
 )
 from transactions_chile.schemas import BankTransactionsSchema
@@ -401,11 +404,11 @@ class TestItauBankTransactions(unittest.TestCase):
         )
 
 
-class TestItauCreditCardBankTransactions(unittest.TestCase):
-    """Test the Itau Credit Card bank transactions class."""
+class TestItauUnbilledCreditCardBankTransactions(unittest.TestCase):
+    """Test the Itau Unbilled Credit Card bank transactions class."""
 
     def setUp(self):
-        """Set up test fixtures for Itau Credit Card."""
+        """Set up test fixtures for Itau Unbilled Credit Card."""
         # Sample credit card purchases
         self.regular_purchase_df = pd.DataFrame(
             {
@@ -446,7 +449,147 @@ class TestItauCreditCardBankTransactions(unittest.TestCase):
         )
 
     def test_convert_dataframe_regular_purchase(self):
-        """Test converting a regular credit card purchase in Itau Credit Card."""
+        """Test converting a regular credit card purchase in Itau Unbilled Credit Card."""
+        transactions = ItauUnbilledCreditCardBankTransactions(
+            self.regular_purchase_df, convert=False
+        )
+        result_df = transactions._convert_dataframe(self.regular_purchase_df)
+
+        # Verify the transaction was processed correctly
+        self.assertEqual(
+            result_df["amount"].iloc[0], -15400
+        )  # Credit card amounts should be negative
+        self.assertEqual(result_df["payee"].iloc[0], "FARMACIA AHUMADA")
+        self.assertEqual(result_df["description"].iloc[0], "FARMACIA AHUMADA")
+        self.assertEqual(result_df["city"].iloc[0], "SANTIAGO")
+        self.assertEqual(
+            result_df["balance"].iloc[0], 0
+        )  # Credit cards don't show balance
+
+        # Verify date conversion is correct
+        expected_date = pd.to_datetime("2025-04-01")
+        self.assertEqual(result_df["date"].iloc[0], expected_date)
+
+        # Verify all expected columns are present
+        self.assertListEqual(list(result_df.columns), STANDARD_COLUMNS)
+
+    def test_convert_dataframe_foreign_purchase(self):
+        """Test converting a foreign purchase in Itau Unbilled Credit Card."""
+        transactions = ItauUnbilledCreditCardBankTransactions(
+            self.foreign_purchase_df, convert=False
+        )
+        result_df = transactions._convert_dataframe(self.foreign_purchase_df)
+
+        # Verify the transaction was processed correctly
+        self.assertEqual(
+            result_df["amount"].iloc[0], -48750
+        )  # Credit card amounts should be negative
+        self.assertEqual(result_df["payee"].iloc[0], "AMAZON.COM")
+        self.assertEqual(result_df["city"].iloc[0], "SEATTLE")
+
+        # Verify date conversion is correct
+        expected_date = pd.to_datetime("2025-04-02")
+        self.assertEqual(result_df["date"].iloc[0], expected_date)
+
+    def test_convert_dataframe_multiple_transactions(self):
+        """Test converting multiple transactions in Itau Unbilled Credit Card."""
+        transactions = ItauUnbilledCreditCardBankTransactions(
+            self.multiple_transactions_df, convert=False
+        )
+        result_df = transactions._convert_dataframe(self.multiple_transactions_df)
+
+        # Verify number of transactions
+        self.assertEqual(len(result_df), 3)
+
+        # Verify amounts are all negative (credit card purchases)
+        self.assertEqual(result_df["amount"].iloc[0], -15400)
+        self.assertEqual(result_df["amount"].iloc[1], -48750)
+        self.assertEqual(result_df["amount"].iloc[2], -32150)
+
+        # Verify cities are correct
+        self.assertEqual(result_df["city"].iloc[0], "SANTIAGO")
+        self.assertEqual(result_df["city"].iloc[1], "SEATTLE")
+        self.assertEqual(result_df["city"].iloc[2], "SANTIAGO")
+
+    def test_convert_dataframe_with_null_values(self):
+        """Test handling of null values in Itau Unbilled Credit Card transactions."""
+        transactions = ItauUnbilledCreditCardBankTransactions(
+            self.transaction_with_nulls_df, convert=False
+        )
+        result_df = transactions._convert_dataframe(self.transaction_with_nulls_df)
+
+        # Verify that null city is preserved
+        self.assertEqual(result_df["city"].iloc[0], "SANTIAGO")
+        self.assertTrue(pd.isna(result_df["city"].iloc[1]))
+
+    def test_convert_dataframe_returns_required_columns(self):
+        """Test that the result has exactly the required columns in the right order."""
+        transactions = ItauUnbilledCreditCardBankTransactions(
+            self.regular_purchase_df, convert=False
+        )
+        result_df = transactions._convert_dataframe(self.regular_purchase_df)
+
+        # Verify columns are in correct order
+        self.assertListEqual(list(result_df.columns), STANDARD_COLUMNS)
+
+    def test_is_billed_property(self):
+        """Test that the is_billed property returns False for unbilled credit card transactions."""
+        transactions = ItauUnbilledCreditCardBankTransactions(
+            self.regular_purchase_df, convert=False
+        )
+        self.assertFalse(transactions.is_billed)
+
+
+class TestItauBilledCreditCardBankTransactions(unittest.TestCase):
+    """Test the Itau Billed Credit Card bank transactions class."""
+
+    def setUp(self):
+        """Set up test fixtures for Itau Billed Credit Card."""
+        # Sample billed credit card transactions
+        self.regular_purchase_df = pd.DataFrame(
+            {
+                "Fecha operación": ["2025-04-01"],
+                "Descripción operación o cobro": ["FARMACIA AHUMADA"],
+                "Monto operación": [15400],
+                "Lugar de operación": ["SANTIAGO"],
+            }
+        )
+
+        self.foreign_purchase_df = pd.DataFrame(
+            {
+                "Fecha operación": ["2025-04-02"],
+                "Descripción operación o cobro": ["AMAZON.COM"],
+                "Monto operación": [48750],
+                "Lugar de operación": ["SEATTLE"],
+            }
+        )
+
+        # Multiple transactions with different cities
+        self.multiple_transactions_df = pd.DataFrame(
+            {
+                "Fecha operación": ["2025-04-01", "2025-04-02", "2025-04-03"],
+                "Descripción operación o cobro": [
+                    "FARMACIA AHUMADA",
+                    "AMAZON.COM",
+                    "SUPERMERCADO JUMBO",
+                ],
+                "Monto operación": [15400, 48750, 32150],
+                "Lugar de operación": ["SANTIAGO", "SEATTLE", "SANTIAGO"],
+            }
+        )
+
+        # Transaction with missing data
+        self.transaction_with_nulls_df = pd.DataFrame(
+            {
+                "Fecha operación": ["2025-04-01", "2025-04-02"],
+                "Descripción operación o cobro": ["FARMACIA AHUMADA", "AMAZON.COM"],
+                "Monto operación": [15400, 48750],
+                "Lugar de operación": ["SANTIAGO", None],
+            }
+        )
+
+    def test_convert_dataframe_regular_purchase(self):
+        """Test converting a regular credit card purchase in Itau Billed Credit Card."""
         transactions = ItauBilledCreditCardBankTransactions(
             self.regular_purchase_df, convert=False
         )
@@ -471,8 +614,8 @@ class TestItauCreditCardBankTransactions(unittest.TestCase):
         self.assertListEqual(list(result_df.columns), STANDARD_COLUMNS)
 
     def test_convert_dataframe_foreign_purchase(self):
-        """Test converting a foreign purchase in Itau Credit Card."""
-        transactions = ItauUnbilledCreditCardBankTransactions(
+        """Test converting a foreign purchase in Itau Billed Credit Card."""
+        transactions = ItauBilledCreditCardBankTransactions(
             self.foreign_purchase_df, convert=False
         )
         result_df = transactions._convert_dataframe(self.foreign_purchase_df)
@@ -489,7 +632,7 @@ class TestItauCreditCardBankTransactions(unittest.TestCase):
         self.assertEqual(result_df["date"].iloc[0], expected_date)
 
     def test_convert_dataframe_multiple_transactions(self):
-        """Test converting multiple transactions in Itau Credit Card."""
+        """Test converting multiple transactions in Itau Billed Credit Card."""
         transactions = ItauBilledCreditCardBankTransactions(
             self.multiple_transactions_df, convert=False
         )
@@ -509,8 +652,8 @@ class TestItauCreditCardBankTransactions(unittest.TestCase):
         self.assertEqual(result_df["city"].iloc[2], "SANTIAGO")
 
     def test_convert_dataframe_with_null_values(self):
-        """Test handling of null values in Itau Credit Card transactions."""
-        transactions = ItauUnbilledCreditCardBankTransactions(
+        """Test handling of null values in Itau Billed Credit Card transactions."""
+        transactions = ItauBilledCreditCardBankTransactions(
             self.transaction_with_nulls_df, convert=False
         )
         result_df = transactions._convert_dataframe(self.transaction_with_nulls_df)
@@ -528,6 +671,13 @@ class TestItauCreditCardBankTransactions(unittest.TestCase):
 
         # Verify columns are in correct order
         self.assertListEqual(list(result_df.columns), STANDARD_COLUMNS)
+
+    def test_is_billed_property(self):
+        """Test that the is_billed property returns True for billed credit card transactions."""
+        transactions = ItauBilledCreditCardBankTransactions(
+            self.regular_purchase_df, convert=False
+        )
+        self.assertTrue(transactions.is_billed)
 
 
 class TestItauCheckingAccountBankTransactions(unittest.TestCase):
@@ -713,11 +863,11 @@ class TestBancoChileBankTransactions(unittest.TestCase):
         )
 
 
-class TestBancoChileCreditCardBankTransactions(unittest.TestCase):
-    """Test the Banco Chile Credit Card bank transactions class."""
+class TestBancoChileUnbilledCreditCardBankTransactions(unittest.TestCase):
+    """Test the Banco Chile Unbilled Credit Card bank transactions class."""
 
     def setUp(self):
-        """Set up test fixtures for Banco Chile Credit Card."""
+        """Set up test fixtures for Banco Chile Unbilled Credit Card."""
         # Regular purchase
         self.regular_purchase_df = pd.DataFrame(
             {
@@ -759,8 +909,8 @@ class TestBancoChileCreditCardBankTransactions(unittest.TestCase):
         )
 
     def test_convert_dataframe_regular_purchase(self):
-        """Test converting a regular purchase in Banco Chile Credit Card."""
-        transactions = BancoChileBilledCreditCardBankTransactions(
+        """Test converting a regular purchase in Banco Chile Unbilled Credit Card."""
+        transactions = BancoChileUnbilledCreditCardBankTransactions(
             self.regular_purchase_df, convert=False
         )
         result_df = transactions._convert_dataframe(self.regular_purchase_df)
@@ -784,7 +934,7 @@ class TestBancoChileCreditCardBankTransactions(unittest.TestCase):
         self.assertListEqual(list(result_df.columns), STANDARD_COLUMNS)
 
     def test_convert_dataframe_international_purchase(self):
-        """Test converting an international purchase in Banco Chile Credit Card."""
+        """Test converting an international purchase in Banco Chile Unbilled Credit Card."""
         transactions = BancoChileUnbilledCreditCardBankTransactions(
             self.international_purchase_df, convert=False
         )
@@ -802,8 +952,8 @@ class TestBancoChileCreditCardBankTransactions(unittest.TestCase):
         self.assertEqual(result_df["date"].iloc[0], expected_date)
 
     def test_convert_dataframe_multiple_transactions(self):
-        """Test converting multiple transactions in Banco Chile Credit Card."""
-        transactions = BancoChileBilledCreditCardBankTransactions(
+        """Test converting multiple transactions in Banco Chile Unbilled Credit Card."""
+        transactions = BancoChileUnbilledCreditCardBankTransactions(
             self.multiple_transactions_df, convert=False
         )
         result_df = transactions._convert_dataframe(self.multiple_transactions_df)
@@ -822,7 +972,7 @@ class TestBancoChileCreditCardBankTransactions(unittest.TestCase):
         self.assertEqual(result_df["city"].iloc[2], "SANTIAGO")
 
     def test_convert_dataframe_missing_city(self):
-        """Test handling of missing city in Banco Chile Credit Card transactions."""
+        """Test handling of missing city in Banco Chile Unbilled Credit Card transactions."""
         transactions = BancoChileUnbilledCreditCardBankTransactions(
             self.transaction_missing_city_df, convert=False
         )
@@ -833,6 +983,109 @@ class TestBancoChileCreditCardBankTransactions(unittest.TestCase):
 
     def test_convert_dataframe_returns_required_columns(self):
         """Test that the result has exactly the required columns in the right order."""
+        transactions = BancoChileUnbilledCreditCardBankTransactions(
+            self.regular_purchase_df, convert=False
+        )
+        result_df = transactions._convert_dataframe(self.regular_purchase_df)
+
+        # Verify columns are in correct order
+        self.assertListEqual(list(result_df.columns), STANDARD_COLUMNS)
+
+    def test_is_billed_property(self):
+        """Test that the is_billed property returns False for unbilled credit card transactions."""
+        transactions = BancoChileUnbilledCreditCardBankTransactions(
+            self.regular_purchase_df, convert=False
+        )
+        self.assertFalse(transactions.is_billed)
+
+
+class TestBancoChileBilledCreditCardBankTransactions(unittest.TestCase):
+    """Test the Banco Chile Billed Credit Card bank transactions class."""
+
+    def setUp(self):
+        """Set up test fixtures for Banco Chile Billed Credit Card."""
+        # Regular purchase
+        self.regular_purchase_df = pd.DataFrame(
+            {
+                "Fecha": ["01/04/2025"],
+                "Descripción": ["SUPERMERCADO LIDER"],
+                "Monto ($)": [45280],
+                "Ciudad": ["SANTIAGO"],
+            }
+        )
+
+        # International purchase
+        self.international_purchase_df = pd.DataFrame(
+            {
+                "Fecha": ["02/04/2025"],
+                "Descripción": ["NETFLIX"],
+                "Monto ($)": [12990],
+                "Ciudad": ["LOS GATOS"],
+            }
+        )
+
+        # Multiple transactions
+        self.multiple_transactions_df = pd.DataFrame(
+            {
+                "Fecha": ["01/04/2025", "02/04/2025", "03/04/2025"],
+                "Descripción": ["SUPERMERCADO LIDER", "NETFLIX", "UBER EATS"],
+                "Monto ($)": [45280, 12990, 22500],
+                "Ciudad": ["SANTIAGO", "LOS GATOS", "SANTIAGO"],
+            }
+        )
+
+        # Transaction with missing city
+        self.transaction_missing_city_df = pd.DataFrame(
+            {
+                "Fecha": ["01/04/2025"],
+                "Descripción": ["COMPRA ONLINE"],
+                "Monto ($)": [35670],
+                "Ciudad": [None],
+            }
+        )
+
+    def test_convert_dataframe_regular_purchase(self):
+        """Test converting a regular purchase in Banco Chile Billed Credit Card."""
+        transactions = BancoChileBilledCreditCardBankTransactions(
+            self.regular_purchase_df, convert=False
+        )
+        result_df = transactions._convert_dataframe(self.regular_purchase_df)
+
+        # Verify the transaction was processed correctly
+        self.assertEqual(
+            result_df["amount"].iloc[0], -45280
+        )  # Credit card amount should be negative
+        self.assertEqual(result_df["payee"].iloc[0], "SUPERMERCADO LIDER")
+        self.assertEqual(result_df["description"].iloc[0], "SUPERMERCADO LIDER")
+        self.assertEqual(result_df["city"].iloc[0], "")
+        self.assertEqual(
+            result_df["balance"].iloc[0], 0
+        )  # Credit cards don't track balance
+
+        # Verify date conversion is correct
+        expected_date = pd.to_datetime("01/04/2025", format="%d/%m/%Y")
+        self.assertEqual(result_df["date"].iloc[0], expected_date)
+
+        # Verify all expected columns are present
+        self.assertListEqual(list(result_df.columns), STANDARD_COLUMNS)
+
+    def test_convert_dataframe_multiple_transactions(self):
+        """Test converting multiple transactions in Banco Chile Billed Credit Card."""
+        transactions = BancoChileBilledCreditCardBankTransactions(
+            self.multiple_transactions_df, convert=False
+        )
+        result_df = transactions._convert_dataframe(self.multiple_transactions_df)
+
+        # Verify number of transactions
+        self.assertEqual(len(result_df), 3)
+
+        # Verify amounts are all negative (credit card purchases)
+        self.assertEqual(result_df["amount"].iloc[0], -45280)
+        self.assertEqual(result_df["amount"].iloc[1], -12990)
+        self.assertEqual(result_df["amount"].iloc[2], -22500)
+
+    def test_convert_dataframe_returns_required_columns(self):
+        """Test that the result has exactly the required columns in the right order."""
         transactions = BancoChileBilledCreditCardBankTransactions(
             self.regular_purchase_df, convert=False
         )
@@ -840,6 +1093,13 @@ class TestBancoChileCreditCardBankTransactions(unittest.TestCase):
 
         # Verify columns are in correct order
         self.assertListEqual(list(result_df.columns), STANDARD_COLUMNS)
+
+    def test_is_billed_property(self):
+        """Test that the is_billed property returns True for billed credit card transactions."""
+        transactions = BancoChileBilledCreditCardBankTransactions(
+            self.regular_purchase_df, convert=False
+        )
+        self.assertTrue(transactions.is_billed)
 
 
 class TestBancoChileCheckingAccountBankTransactions(unittest.TestCase):
@@ -1095,6 +1355,202 @@ class TestIntegrationTests(unittest.TestCase):
 
         # Check the columns are correct
         self.assertListEqual(list(transactions.transactions.columns), STANDARD_COLUMNS)
+
+
+class TestBankTransactionsFactory(unittest.TestCase):
+    """Test cases for the BankTransactionsFactory class."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        # Simple transaction dataframe for testing factory create method
+        self.test_df = pd.DataFrame(
+            {
+                "date": pd.to_datetime(["2025-04-01"]),
+                "description": ["Test Transaction"],
+                "amount": [1000],
+            }
+        )
+
+    def test_create_with_string_values(self):
+        """Test factory create method with string values for bank and account type."""
+        # Test with string values
+        transaction = BankTransactionsFactory.create(
+            bank="santander",
+            account_type="checking",
+            transactions_df=self.test_df,
+            convert=False,
+        )
+
+        # Verify the correct type is returned
+        self.assertIsInstance(transaction, SantanderCheckingAccountBankTransactions)
+        self.assertEqual(transaction.bank_name, "Santander")
+        self.assertEqual(transaction.account_type, "Checking Account")
+
+    def test_create_with_enum_values(self):
+        """Test factory create method with enum values for bank and account type."""
+        # Test with enum values
+        transaction = BankTransactionsFactory.create(
+            bank=Bank.ITAU,
+            account_type=AccountType.CHECKING,
+            transactions_df=self.test_df,
+            convert=False,
+        )
+
+        # Verify the correct type is returned
+        self.assertIsInstance(transaction, ItauCheckingAccountBankTransactions)
+        self.assertEqual(transaction.bank_name, "Itau")
+        self.assertEqual(transaction.account_type, "Checking Account")
+
+    def test_create_with_mixed_values(self):
+        """Test factory create method with mixed string and enum values."""
+        # String bank, enum account type
+        transaction1 = BankTransactionsFactory.create(
+            bank="bchile",
+            account_type=AccountType.CREDIT_BILLED,
+            transactions_df=self.test_df,
+            convert=False,
+        )
+        self.assertIsInstance(transaction1, BancoChileBilledCreditCardBankTransactions)
+
+        # Enum bank, string account type
+        transaction2 = BankTransactionsFactory.create(
+            bank=Bank.ITAU,
+            account_type="credit-unbilled",
+            transactions_df=self.test_df,
+            convert=False,
+        )
+        self.assertIsInstance(transaction2, ItauUnbilledCreditCardBankTransactions)
+
+    def test_create_invalid_combination(self):
+        """Test factory create method with invalid bank/account type combination."""
+        # This combination doesn't exist in the registry
+        with self.assertRaises(ValueError):
+            BankTransactionsFactory.create(
+                bank="nonexistent",
+                account_type="checking",
+                transactions_df=self.test_df,
+                convert=False,
+            )
+
+    def test_create_from_excel_success(self):
+        """Test create_from_excel method with a mock Excel file."""
+        # Mock pd.read_excel to avoid actual file IO
+        original_read_excel = pd.read_excel
+
+        # Store the original _convert_dataframe method
+        original_convert_dataframe = (
+            ItauBilledCreditCardBankTransactions._convert_dataframe
+        )
+
+        try:
+            # Create a mock that returns our test dataframe
+            def mock_read_excel(file_path, sheet_name, **kwargs):
+                return self.test_df
+
+            # Mock _convert_dataframe to do nothing (return the dataframe as-is)
+            def mock_convert_dataframe(self, df):
+                return df
+
+            # Apply the mocks
+            pd.read_excel = mock_read_excel
+            ItauBilledCreditCardBankTransactions._convert_dataframe = (
+                mock_convert_dataframe
+            )
+
+            # Test create_from_excel with string values
+            transaction = BankTransactionsFactory.create_from_excel(
+                bank="itau",
+                account_type="credit-billed",
+                input_file="mock_file.xlsx",
+                sheet_name=0,
+            )
+
+            # Verify correct instance is created
+            self.assertIsInstance(transaction, ItauBilledCreditCardBankTransactions)
+
+        finally:
+            # Restore original functions
+            pd.read_excel = original_read_excel
+            ItauBilledCreditCardBankTransactions._convert_dataframe = (
+                original_convert_dataframe
+            )
+
+    def test_register_new_combination(self):
+        """Test registering a new bank/account type combination."""
+
+        # Create a custom bank transaction class for testing
+        class CustomBankTransactions(BankTransactions):
+            @property
+            def bank_name(self):
+                return "Custom Bank"
+
+            @property
+            def account_type(self):
+                return "Custom Account"
+
+            def _convert_dataframe(self, df):
+                return df
+
+        # Store original class
+        original_class = None
+        if (Bank.ITAU, AccountType.CHECKING) in BankTransactionsFactory._registry:
+            original_class = BankTransactionsFactory._registry[
+                (Bank.ITAU, AccountType.CHECKING)
+            ]
+
+        try:
+            # Register the new combination
+            BankTransactionsFactory.register(
+                bank=Bank.ITAU,
+                account_type=AccountType.CHECKING,
+                transaction_class=CustomBankTransactions,
+            )
+
+            # Create an instance with the newly registered combination
+            transaction = BankTransactionsFactory.create(
+                bank=Bank.ITAU,
+                account_type=AccountType.CHECKING,
+                transactions_df=self.test_df,
+                convert=False,
+            )
+
+            # Verify the instance is of the newly registered class
+            self.assertIsInstance(transaction, CustomBankTransactions)
+            self.assertEqual(transaction.bank_name, "Custom Bank")
+            self.assertEqual(transaction.account_type, "Custom Account")
+
+        finally:
+            # Clean up: restore the original mapping
+            if original_class is not None:
+                BankTransactionsFactory.register(
+                    bank=Bank.ITAU,
+                    account_type=AccountType.CHECKING,
+                    transaction_class=original_class,
+                )
+
+    def test_all_registry_combinations(self):
+        """Test that all combinations in the registry can be instantiated."""
+        for (
+            bank,
+            account_type,
+        ), transaction_class in BankTransactionsFactory._registry.items():
+            # Create instance
+            transaction = BankTransactionsFactory.create(
+                bank=bank,
+                account_type=account_type,
+                transactions_df=self.test_df,
+                convert=False,
+            )
+
+            # Verify instance is of expected type
+            self.assertIsInstance(transaction, transaction_class)
+
+            # Verify bank and account type properties
+            if hasattr(transaction, "bank") and hasattr(
+                transaction, "account_type_value"
+            ):
+                self.assertEqual(transaction.bank, bank)
+                self.assertEqual(transaction.account_type_value, account_type)
 
 
 if __name__ == "__main__":

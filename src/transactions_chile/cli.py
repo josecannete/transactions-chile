@@ -9,53 +9,29 @@ import click
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from .bank_transactions import (
-    SantanderCheckingAccountBankTransactions,
-    ItauBilledCreditCardBankTransactions,
-    ItauUnbilledCreditCardBankTransactions,
-    ItauCheckingAccountBankTransactions,
-    BancoChileBilledCreditCardBankTransactions,
-    BancoChileUnbilledCreditCardBankTransactions,
-    BancoChileCheckingAccountBankTransactions,
+    BankTransactionsFactory,
+    Bank,
+    AccountType,
 )
 from .schemas import BankTransactionsSchema
 
 console = Console()
 
-# Define account type constants
-ACCOUNT_TYPE_CHECKING = "checking"
-ACCOUNT_TYPE_CREDIT_BILLED = "credit-billed"
-ACCOUNT_TYPE_CREDIT_UNBILLED = "credit-unbilled"
-
-# Map of supported banks and account types to their respective classes
-BANK_CLASSES = {
-    "santander": {
-        ACCOUNT_TYPE_CHECKING: SantanderCheckingAccountBankTransactions,
-    },
-    "itau": {
-        ACCOUNT_TYPE_CREDIT_BILLED: ItauBilledCreditCardBankTransactions,
-        ACCOUNT_TYPE_CREDIT_UNBILLED: ItauUnbilledCreditCardBankTransactions,
-        ACCOUNT_TYPE_CHECKING: ItauCheckingAccountBankTransactions,
-    },
-    "bancochile": {
-        ACCOUNT_TYPE_CREDIT_BILLED: BancoChileBilledCreditCardBankTransactions,
-        ACCOUNT_TYPE_CREDIT_UNBILLED: BancoChileUnbilledCreditCardBankTransactions,
-        ACCOUNT_TYPE_CHECKING: BancoChileCheckingAccountBankTransactions,
-    },
-}
-
 # List of supported banks (for CLI choices)
-SUPPORTED_BANKS = list(BANK_CLASSES.keys())
+SUPPORTED_BANKS = [bank.value for bank in Bank]
 
 # Get supported account types for each bank
 SUPPORTED_ACCOUNT_TYPES = {
-    bank: list(account_types.keys()) for bank, account_types in BANK_CLASSES.items()
+    Bank.SANTANDER.value: [AccountType.CHECKING.value],
+    Bank.ITAU.value: [account_type.value for account_type in AccountType],
+    Bank.BANCO_CHILE.value: [account_type.value for account_type in AccountType],
 }
 
 # Default account type for each bank
 DEFAULT_ACCOUNT_TYPES = {
-    "santander": ACCOUNT_TYPE_CHECKING,
-    "itau": ACCOUNT_TYPE_CREDIT_BILLED,
-    "bancochile": ACCOUNT_TYPE_CREDIT_BILLED,
+    Bank.SANTANDER.value: AccountType.CHECKING.value,
+    Bank.ITAU.value: AccountType.CREDIT_BILLED.value,
+    Bank.BANCO_CHILE.value: AccountType.CREDIT_BILLED.value,
 }
 
 
@@ -110,11 +86,7 @@ def cli():
     "--account-type",
     "-a",
     type=click.Choice(
-        [
-            ACCOUNT_TYPE_CHECKING,
-            ACCOUNT_TYPE_CREDIT_BILLED,
-            ACCOUNT_TYPE_CREDIT_UNBILLED,
-        ],
+        [account_type.value for account_type in AccountType],
         case_sensitive=False,
     ),
     help="Account type (checking for 'Cuenta Corriente', credit-billed for 'Tarjeta de Crédito Facturada', "
@@ -157,18 +129,13 @@ def convert(
                 return 1
 
         # Use default account type if not specified
-        if account_type is None:
-            account_type = DEFAULT_ACCOUNT_TYPES[bank.lower()]
-
-        # Get the appropriate bank transaction class
         bank_key = bank.lower()
+        if account_type is None:
+            account_type = DEFAULT_ACCOUNT_TYPES[bank_key]
         account_type_key = account_type.lower()
 
-        if bank_key not in BANK_CLASSES:
-            console.print(f"[bold red]Error:[/bold red] Unsupported bank type: {bank}")
-            return 1
-
-        if account_type_key not in BANK_CLASSES[bank_key]:
+        # Validate that the account type is supported for the selected bank
+        if account_type_key not in SUPPORTED_ACCOUNT_TYPES.get(bank_key, []):
             console.print(
                 f"[bold red]Error:[/bold red] Unsupported account type '{account_type}' for bank '{bank}'"
             )
@@ -176,8 +143,6 @@ def convert(
                 f"Supported account types for {bank}: {', '.join(SUPPORTED_ACCOUNT_TYPES[bank_key])}"
             )
             return 1
-
-        bank_class = BANK_CLASSES[bank_key][account_type_key]
 
         with Progress(
             SpinnerColumn(),
@@ -188,11 +153,17 @@ def convert(
         ) as progress:
             task = progress.add_task("Processing", total=None)
 
-            # Load and process transactions using the appropriate bank class
+            # Load and process transactions using the BankTransactionsFactory
             try:
-                transactions = bank_class.from_excel(
-                    input_file=input_file, sheet_name=sheet_name
+                transactions = BankTransactionsFactory.create_from_excel(
+                    bank=bank_key,
+                    account_type=account_type_key,
+                    input_file=input_file,
+                    sheet_name=sheet_name,
                 )
+            except ValueError as ve:
+                console.print(f"[bold red]Error:[/bold red] {str(ve)}")
+                return 1
             except Exception as e:
                 console.print(f"[bold red]Error processing file:[/bold red] {str(e)}")
                 return 1

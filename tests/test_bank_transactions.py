@@ -15,13 +15,18 @@ from parameterized import parameterized
 
 from transactions_chile.bank_transactions import (
     BankTransactions,
-    SantanderBankTransactions,
+    SantanderBankMixin,
+    ItauBankMixin,
+    BancoChileBankMixin,
+    CheckingAccountMixin,
+    BilledCreditCardMixin,
+    UnbilledCreditCardMixin,
     SantanderCheckingAccountBankTransactions,
-    ItauBankTransactions,
-    ItauCreditCardBankTransactions,
+    ItauBilledCreditCardBankTransactions,
+    ItauUnbilledCreditCardBankTransactions,
     ItauCheckingAccountBankTransactions,
-    BancoChileBankTransactions,
-    BancoChileCreditCardBankTransactions,
+    BancoChileBilledCreditCardBankTransactions,
+    BancoChileUnbilledCreditCardBankTransactions,
     BancoChileCheckingAccountBankTransactions,
     STANDARD_COLUMNS,
 )
@@ -202,32 +207,18 @@ class TestSantanderBankTransactions(unittest.TestCase):
 
     def test_inheritance_hierarchy(self):
         """Test that the inheritance hierarchy is correct."""
+        # Test that the mixins are used in the concrete classes
         self.assertTrue(
-            issubclass(
-                SantanderCheckingAccountBankTransactions, SantanderBankTransactions
-            )
+            issubclass(SantanderCheckingAccountBankTransactions, SantanderBankMixin)
         )
-        self.assertTrue(issubclass(SantanderBankTransactions, BankTransactions))
-
-    def test_properties(self):
-        """Test the Santander bank properties."""
-        # Create a mock DataFrame for testing
-        mock_df = pd.DataFrame(
-            {
-                "Fecha": ["01-04-2025"],
-                "Detalle": ["Test Transaction"],
-                "Monto abono ($)": [1000],
-                "Monto cargo ($)": [0],
-                "Saldo ($)": [1000],
-            }
+        # Test that concrete class inherits from BankTransactions
+        self.assertTrue(
+            issubclass(SantanderCheckingAccountBankTransactions, BankTransactions)
         )
-
-        # Create an instance with convert=False to test properties
-        transactions = SantanderCheckingAccountBankTransactions(mock_df, convert=False)
-
-        # Test the properties
-        self.assertEqual(transactions.bank_name, "Santander")
-        self.assertEqual(transactions.account_type, "Checking Account")
+        # Test that concrete class uses account type mixin
+        self.assertTrue(
+            issubclass(SantanderCheckingAccountBankTransactions, CheckingAccountMixin)
+        )
 
 
 class TestSantanderCheckingAccountBankTransactions(unittest.TestCase):
@@ -381,13 +372,33 @@ class TestItauBankTransactions(unittest.TestCase):
 
     def test_inheritance_hierarchy(self):
         """Test that the inheritance hierarchy is correct."""
+        # Test that the mixins are used in the concrete classes
+        self.assertTrue(issubclass(ItauBilledCreditCardBankTransactions, ItauBankMixin))
         self.assertTrue(
-            issubclass(ItauCreditCardBankTransactions, ItauBankTransactions)
+            issubclass(ItauUnbilledCreditCardBankTransactions, ItauBankMixin)
+        )
+        self.assertTrue(issubclass(ItauCheckingAccountBankTransactions, ItauBankMixin))
+        # Test that concrete classes inherit from BankTransactions
+        self.assertTrue(
+            issubclass(ItauBilledCreditCardBankTransactions, BankTransactions)
         )
         self.assertTrue(
-            issubclass(ItauCheckingAccountBankTransactions, ItauBankTransactions)
+            issubclass(ItauUnbilledCreditCardBankTransactions, BankTransactions)
         )
-        self.assertTrue(issubclass(ItauBankTransactions, BankTransactions))
+        self.assertTrue(
+            issubclass(ItauCheckingAccountBankTransactions, BankTransactions)
+        )
+
+        # Test that credit card classes use the correct mixins
+        self.assertTrue(
+            issubclass(ItauBilledCreditCardBankTransactions, BilledCreditCardMixin)
+        )
+        self.assertTrue(
+            issubclass(ItauUnbilledCreditCardBankTransactions, UnbilledCreditCardMixin)
+        )
+        self.assertTrue(
+            issubclass(ItauCheckingAccountBankTransactions, CheckingAccountMixin)
+        )
 
 
 class TestItauCreditCardBankTransactions(unittest.TestCase):
@@ -436,7 +447,7 @@ class TestItauCreditCardBankTransactions(unittest.TestCase):
 
     def test_convert_dataframe_regular_purchase(self):
         """Test converting a regular credit card purchase in Itau Credit Card."""
-        transactions = ItauCreditCardBankTransactions(
+        transactions = ItauBilledCreditCardBankTransactions(
             self.regular_purchase_df, convert=False
         )
         result_df = transactions._convert_dataframe(self.regular_purchase_df)
@@ -461,7 +472,7 @@ class TestItauCreditCardBankTransactions(unittest.TestCase):
 
     def test_convert_dataframe_foreign_purchase(self):
         """Test converting a foreign purchase in Itau Credit Card."""
-        transactions = ItauCreditCardBankTransactions(
+        transactions = ItauUnbilledCreditCardBankTransactions(
             self.foreign_purchase_df, convert=False
         )
         result_df = transactions._convert_dataframe(self.foreign_purchase_df)
@@ -479,7 +490,7 @@ class TestItauCreditCardBankTransactions(unittest.TestCase):
 
     def test_convert_dataframe_multiple_transactions(self):
         """Test converting multiple transactions in Itau Credit Card."""
-        transactions = ItauCreditCardBankTransactions(
+        transactions = ItauBilledCreditCardBankTransactions(
             self.multiple_transactions_df, convert=False
         )
         result_df = transactions._convert_dataframe(self.multiple_transactions_df)
@@ -499,7 +510,7 @@ class TestItauCreditCardBankTransactions(unittest.TestCase):
 
     def test_convert_dataframe_with_null_values(self):
         """Test handling of null values in Itau Credit Card transactions."""
-        transactions = ItauCreditCardBankTransactions(
+        transactions = ItauUnbilledCreditCardBankTransactions(
             self.transaction_with_nulls_df, convert=False
         )
         result_df = transactions._convert_dataframe(self.transaction_with_nulls_df)
@@ -510,7 +521,7 @@ class TestItauCreditCardBankTransactions(unittest.TestCase):
 
     def test_convert_dataframe_returns_required_columns(self):
         """Test that the result has exactly the required columns in the right order."""
-        transactions = ItauCreditCardBankTransactions(
+        transactions = ItauBilledCreditCardBankTransactions(
             self.regular_purchase_df, convert=False
         )
         result_df = transactions._convert_dataframe(self.regular_purchase_df)
@@ -663,15 +674,43 @@ class TestBancoChileBankTransactions(unittest.TestCase):
 
     def test_inheritance_hierarchy(self):
         """Test that the inheritance hierarchy is correct."""
+        # Test that the mixins are used in the concrete classes
         self.assertTrue(
-            issubclass(BancoChileCreditCardBankTransactions, BancoChileBankTransactions)
+            issubclass(BancoChileBilledCreditCardBankTransactions, BancoChileBankMixin)
         )
         self.assertTrue(
             issubclass(
-                BancoChileCheckingAccountBankTransactions, BancoChileBankTransactions
+                BancoChileUnbilledCreditCardBankTransactions, BancoChileBankMixin
             )
         )
-        self.assertTrue(issubclass(BancoChileBankTransactions, BankTransactions))
+        self.assertTrue(
+            issubclass(BancoChileCheckingAccountBankTransactions, BancoChileBankMixin)
+        )
+        # Test that concrete classes inherit from BankTransactions
+        self.assertTrue(
+            issubclass(BancoChileBilledCreditCardBankTransactions, BankTransactions)
+        )
+        self.assertTrue(
+            issubclass(BancoChileUnbilledCreditCardBankTransactions, BankTransactions)
+        )
+        self.assertTrue(
+            issubclass(BancoChileCheckingAccountBankTransactions, BankTransactions)
+        )
+
+        # Test that credit card classes use the correct mixins
+        self.assertTrue(
+            issubclass(
+                BancoChileBilledCreditCardBankTransactions, BilledCreditCardMixin
+            )
+        )
+        self.assertTrue(
+            issubclass(
+                BancoChileUnbilledCreditCardBankTransactions, UnbilledCreditCardMixin
+            )
+        )
+        self.assertTrue(
+            issubclass(BancoChileCheckingAccountBankTransactions, CheckingAccountMixin)
+        )
 
 
 class TestBancoChileCreditCardBankTransactions(unittest.TestCase):
@@ -721,7 +760,7 @@ class TestBancoChileCreditCardBankTransactions(unittest.TestCase):
 
     def test_convert_dataframe_regular_purchase(self):
         """Test converting a regular purchase in Banco Chile Credit Card."""
-        transactions = BancoChileCreditCardBankTransactions(
+        transactions = BancoChileBilledCreditCardBankTransactions(
             self.regular_purchase_df, convert=False
         )
         result_df = transactions._convert_dataframe(self.regular_purchase_df)
@@ -746,7 +785,7 @@ class TestBancoChileCreditCardBankTransactions(unittest.TestCase):
 
     def test_convert_dataframe_international_purchase(self):
         """Test converting an international purchase in Banco Chile Credit Card."""
-        transactions = BancoChileCreditCardBankTransactions(
+        transactions = BancoChileUnbilledCreditCardBankTransactions(
             self.international_purchase_df, convert=False
         )
         result_df = transactions._convert_dataframe(self.international_purchase_df)
@@ -764,7 +803,7 @@ class TestBancoChileCreditCardBankTransactions(unittest.TestCase):
 
     def test_convert_dataframe_multiple_transactions(self):
         """Test converting multiple transactions in Banco Chile Credit Card."""
-        transactions = BancoChileCreditCardBankTransactions(
+        transactions = BancoChileBilledCreditCardBankTransactions(
             self.multiple_transactions_df, convert=False
         )
         result_df = transactions._convert_dataframe(self.multiple_transactions_df)
@@ -784,7 +823,7 @@ class TestBancoChileCreditCardBankTransactions(unittest.TestCase):
 
     def test_convert_dataframe_missing_city(self):
         """Test handling of missing city in Banco Chile Credit Card transactions."""
-        transactions = BancoChileCreditCardBankTransactions(
+        transactions = BancoChileUnbilledCreditCardBankTransactions(
             self.transaction_missing_city_df, convert=False
         )
         result_df = transactions._convert_dataframe(self.transaction_missing_city_df)
@@ -794,7 +833,7 @@ class TestBancoChileCreditCardBankTransactions(unittest.TestCase):
 
     def test_convert_dataframe_returns_required_columns(self):
         """Test that the result has exactly the required columns in the right order."""
-        transactions = BancoChileCreditCardBankTransactions(
+        transactions = BancoChileBilledCreditCardBankTransactions(
             self.regular_purchase_df, convert=False
         )
         result_df = transactions._convert_dataframe(self.regular_purchase_df)

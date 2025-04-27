@@ -1,10 +1,186 @@
 from abc import ABC, abstractmethod
-from typing import Self, Dict, Any
+from typing import Self, Dict, Any, Type, Union
+from enum import Enum
 import pandera as pa
 import pandas as pd
 
 
+class Bank(str, Enum):
+    """Enum for supported banks"""
+
+    SANTANDER = "santander"
+    ITAU = "itau"
+    BANCO_CHILE = "bchile"
+
+    @property
+    def display_name(self) -> str:
+        """
+        Get a human-readable bank name.
+
+        Returns:
+            str: The formatted name of the bank.
+        """
+        display_names = {
+            Bank.SANTANDER: "Santander",
+            Bank.ITAU: "Itau",
+            Bank.BANCO_CHILE: "Banco de Chile",
+        }
+        return display_names.get(self, self.name.title().replace("_", " "))
+
+
+class AccountType(str, Enum):
+    """Enum for supported account types"""
+
+    CHECKING = "checking"
+    CREDIT_BILLED = "credit-billed"
+    CREDIT_UNBILLED = "credit-unbilled"
+
+    @property
+    def display_name(self) -> str:
+        """
+        Get a human-readable account type name.
+
+        Returns:
+            str: The formatted name of the account type.
+        """
+        display_names = {
+            AccountType.CHECKING: "Checking Account",
+            AccountType.CREDIT_BILLED: "Credit Card (Billed)",
+            AccountType.CREDIT_UNBILLED: "Credit Card (Unbilled)",
+        }
+        return display_names.get(self, self.name.title().replace("_", " "))
+
+
 STANDARD_COLUMNS = ["date", "payee", "description", "amount", "city", "balance"]
+
+
+class BankMixin(ABC):
+    """Abstract base mixin for bank-specific functionality.
+
+    This mixin defines the interface for bank-specific implementations
+    and provides common functionality derived from the bank enum.
+    """
+
+    @property
+    @abstractmethod
+    def bank_enum(self) -> Bank:
+        """
+        Get the bank enum value.
+
+        Returns:
+            Bank: The enum value for this bank.
+        """
+        pass
+
+    @property
+    def bank_name(self) -> str:
+        """
+        Get a human-readable bank name derived from the enum.
+
+        Returns:
+            str: The formatted name of the bank.
+        """
+        return self.bank_enum.display_name
+
+
+class SantanderBankMixin(BankMixin):
+    """Mixin for Santander Bank specific functionality."""
+
+    @property
+    def bank_enum(self) -> Bank:
+        return Bank.SANTANDER
+
+
+class ItauBankMixin(BankMixin):
+    """Mixin for Itau Bank specific functionality."""
+
+    @property
+    def bank_enum(self) -> Bank:
+        return Bank.ITAU
+
+
+class BancoChileBankMixin(BankMixin):
+    """Mixin for Banco de Chile specific functionality."""
+
+    @property
+    def bank_enum(self) -> Bank:
+        return Bank.BANCO_CHILE
+
+
+class AccountTypeMixin(ABC):
+    """Abstract base mixin for account type functionality.
+
+    This mixin defines the interface for account type implementations
+    and provides common functionality derived from the account type enum.
+    """
+
+    @property
+    @abstractmethod
+    def account_type_enum(self) -> AccountType:
+        """
+        Get the account type enum value.
+
+        Returns:
+            AccountType: The enum value for this account type.
+        """
+        pass
+
+    @property
+    def account_type(self) -> str:
+        """
+        Get a human-readable account type name derived from the enum.
+
+        Returns:
+            str: The formatted name of the account type.
+        """
+        return self.account_type_enum.display_name
+
+
+class CheckingAccountMixin(AccountTypeMixin):
+    """Mixin for checking account specific functionality."""
+
+    @property
+    def account_type_enum(self) -> AccountType:
+        return AccountType.CHECKING
+
+
+class CreditCardMixin(AccountTypeMixin):
+    """Base mixin for credit card functionality."""
+
+    @property
+    def is_billed(self) -> bool:
+        """
+        Determine if the credit card transactions are billed or unbilled.
+        This is derived from the account_type_enum property.
+
+        Returns:
+            bool: True for billed transactions, False for unbilled
+        """
+        return self.account_type_enum == AccountType.CREDIT_BILLED
+
+
+class BilledCreditCardMixin(CreditCardMixin):
+    """Mixin for billed credit card transactions."""
+
+    @property
+    def account_type_enum(self) -> AccountType:
+        return AccountType.CREDIT_BILLED
+
+    @property
+    def account_subtype(self) -> str:
+        return "Billed"
+
+
+class UnbilledCreditCardMixin(CreditCardMixin):
+    """Mixin for unbilled (pending) credit card transactions."""
+
+    @property
+    def account_type_enum(self) -> AccountType:
+        return AccountType.CREDIT_UNBILLED
+
+    @property
+    def account_subtype(self) -> str:
+        return "Unbilled"
 
 
 class BankTransactions(ABC):
@@ -43,6 +219,38 @@ class BankTransactions(ABC):
             str: Type of the account.
         """
         pass
+
+    @property
+    def bank(self) -> Bank:
+        """
+        Get the bank enum value.
+        Only available if a BankMixin is used.
+
+        Returns:
+            Bank: The enum value for the bank.
+
+        Raises:
+            AttributeError: If not implemented by a mixin
+        """
+        if hasattr(self, "bank_enum"):
+            return self.bank_enum
+        raise AttributeError("bank property not implemented")
+
+    @property
+    def account_type_value(self) -> AccountType:
+        """
+        Get the account type enum value.
+        Only available if an AccountTypeMixin is used.
+
+        Returns:
+            AccountType: The enum value for the account type.
+
+        Raises:
+            AttributeError: If not implemented by a mixin
+        """
+        if hasattr(self, "account_type_enum"):
+            return self.account_type_enum
+        raise AttributeError("account_type_value property not implemented")
 
     @classmethod
     def get_excel_parameters(cls) -> Dict[str, Any]:
@@ -130,20 +338,10 @@ class BankTransactions(ABC):
         return False
 
 
-class SantanderBankTransactions(BankTransactions, ABC):
-    """Base class for handling transactions from Santander Bank."""
-
-    @property
-    def bank_name(self) -> str:
-        return "Santander"
-
-
-class SantanderCheckingAccountBankTransactions(SantanderBankTransactions):
+class SantanderCheckingAccountBankTransactions(
+    SantanderBankMixin, CheckingAccountMixin, BankTransactions
+):
     """Class for handling transactions from Santander Bank Checking Account."""
-
-    @property
-    def account_type(self) -> str:
-        return "Checking Account"
 
     @classmethod
     def get_excel_parameters(cls) -> Dict[str, Any]:
@@ -180,58 +378,10 @@ class SantanderCheckingAccountBankTransactions(SantanderBankTransactions):
         return transactions_df[STANDARD_COLUMNS]
 
 
-class ItauBankTransactions(BankTransactions, ABC):
-    """Base class for handling transactions from Itau Bank."""
-
-    @property
-    def bank_name(self) -> str:
-        return "Itau"
-
-
-class ItauCreditCardBankTransactions(ItauBankTransactions):
-    """Class for handling transactions from Itau Bank Credit Card."""
-
-    @property
-    def account_type(self) -> str:
-        return "Credit Card"
-
-    @classmethod
-    def get_excel_parameters(cls) -> Dict[str, Any]:
-        """
-        Get Itau Credit Card-specific Excel loading parameters.
-
-        Returns:
-            Dict[str, Any]: Parameters to pass to pd.read_excel
-        """
-        return {"skiprows": 9, "skipfooter": 5}
-
-    def _convert_dataframe(self, transactions_df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Convert Itau Bank transactions format to standard format.
-
-        Args:
-            transactions_df (pd.DataFrame): Original Itau transactions.
-
-        Returns:
-            pd.DataFrame: Standardized transactions.
-        """
-        transactions_df["date"] = pd.to_datetime(
-            transactions_df["Fecha compra"], format="%Y-%m-%d"
-        )
-        transactions_df["description"] = transactions_df["Descripción"]
-        transactions_df["payee"] = transactions_df["Descripción"]
-        transactions_df["amount"] = -transactions_df["Monto"]
-        transactions_df["city"] = transactions_df["Ciudad"]
-        transactions_df["balance"] = 0
-        return transactions_df[STANDARD_COLUMNS]
-
-
-class ItauCheckingAccountBankTransactions(ItauBankTransactions):
+class ItauCheckingAccountBankTransactions(
+    ItauBankMixin, CheckingAccountMixin, BankTransactions
+):
     """Class for handling transactions from Itau Bank Checking Account."""
-
-    @property
-    def account_type(self) -> str:
-        return "Checking Account"
 
     @classmethod
     def get_excel_parameters(cls) -> Dict[str, Any]:
@@ -267,58 +417,10 @@ class ItauCheckingAccountBankTransactions(ItauBankTransactions):
         return transactions_df[STANDARD_COLUMNS]
 
 
-class BancoChileBankTransactions(BankTransactions, ABC):
-    """Base class for handling transactions from Banco Chile."""
-
-    @property
-    def bank_name(self) -> str:
-        return "Banco de Chile"
-
-
-class BancoChileCreditCardBankTransactions(BancoChileBankTransactions):
-    """Class for handling transactions from Banco Chile Credit Card."""
-
-    @property
-    def account_type(self) -> str:
-        return "Credit Card"
-
-    @classmethod
-    def get_excel_parameters(cls) -> Dict[str, Any]:
-        """
-        Get Banco Chile Credit Card-specific Excel loading parameters.
-
-        Returns:
-            Dict[str, Any]: Parameters to pass to pd.read_excel
-        """
-        return {"skiprows": 17}
-
-    def _convert_dataframe(self, transactions_df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Convert Banco Chile transactions format to standard format.
-
-        Args:
-            transactions_df (pd.DataFrame): Original Banco Chile transactions.
-
-        Returns:
-            pd.DataFrame: Standardized transactions.
-        """
-        transactions_df["date"] = pd.to_datetime(
-            transactions_df["Fecha"], format="%d/%m/%Y"
-        )
-        transactions_df["description"] = transactions_df["Descripción"]
-        transactions_df["payee"] = transactions_df["Descripción"]
-        transactions_df["amount"] = -transactions_df["Unnamed: 10"]
-        transactions_df["city"] = transactions_df["Ciudad"]
-        transactions_df["balance"] = 0
-        return transactions_df[STANDARD_COLUMNS]
-
-
-class BancoChileCheckingAccountBankTransactions(BancoChileBankTransactions):
+class BancoChileCheckingAccountBankTransactions(
+    BancoChileBankMixin, CheckingAccountMixin, BankTransactions
+):
     """Class for handling transactions from Banco Chile Checking Account."""
-
-    @property
-    def account_type(self) -> str:
-        return "Checking Account"
 
     @classmethod
     def get_excel_parameters(cls) -> Dict[str, Any]:
@@ -352,3 +454,284 @@ class BancoChileCheckingAccountBankTransactions(BancoChileBankTransactions):
         transactions_df["city"] = transactions_df["Canal o Sucursal"]
         transactions_df["balance"] = transactions_df["Saldo (CLP)"]
         return transactions_df[STANDARD_COLUMNS]
+
+
+class ItauBilledCreditCardBankTransactions(
+    ItauBankMixin, BilledCreditCardMixin, BankTransactions
+):
+    """Class for handling billed transactions from Itau Bank Credit Card."""
+
+    @classmethod
+    def get_excel_parameters(cls) -> Dict[str, Any]:
+        """
+        Get Itau Billed Credit Card-specific Excel loading parameters.
+
+        Returns:
+            Dict[str, Any]: Parameters to pass to pd.read_excel
+        """
+        return {"skiprows": list(range(52)) + [53], "skipfooter": 35}
+
+    def _convert_dataframe(self, transactions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Convert Itau Bank billed credit card transactions format to standard format.
+
+        Args:
+            transactions_df (pd.DataFrame): Original Itau transactions.
+
+        Returns:
+            pd.DataFrame: Standardized transactions.
+        """
+        transactions_df.dropna(subset=["Monto operación"], inplace=True)
+        transactions_df["date"] = pd.to_datetime(
+            transactions_df["Fecha operación"], format="%Y-%m-%d"
+        )
+        transactions_df["description"] = transactions_df[
+            "Descripción operación o cobro"
+        ]
+        transactions_df["payee"] = transactions_df["Descripción operación o cobro"]
+        transactions_df["amount"] = -transactions_df["Monto operación"].astype(int)
+        transactions_df["city"] = transactions_df["Lugar de operación"]
+        transactions_df["balance"] = 0
+        return transactions_df[STANDARD_COLUMNS]
+
+
+class ItauUnbilledCreditCardBankTransactions(
+    ItauBankMixin, UnbilledCreditCardMixin, BankTransactions
+):
+    """Class for handling unbilled (pending) transactions from Itau Bank Credit Card."""
+
+    @classmethod
+    def get_excel_parameters(cls) -> Dict[str, Any]:
+        """
+        Get Itau Unbilled Credit Card-specific Excel loading parameters.
+
+        Returns:
+            Dict[str, Any]: Parameters to pass to pd.read_excel
+        """
+        return {"skiprows": 9, "skipfooter": 5}  # Same as the original implementation
+
+    def _convert_dataframe(self, transactions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Convert Itau Bank unbilled credit card transactions format to standard format.
+
+        Args:
+            transactions_df (pd.DataFrame): Original Itau unbilled transactions.
+
+        Returns:
+            pd.DataFrame: Standardized transactions.
+        """
+        # This is the original implementation from ItauCreditCardBankTransactions
+        transactions_df["date"] = pd.to_datetime(
+            transactions_df["Fecha compra"], format="%Y-%m-%d"
+        )
+        transactions_df["description"] = transactions_df["Descripción"]
+        transactions_df["payee"] = transactions_df["Descripción"]
+        transactions_df["amount"] = -transactions_df["Monto"]
+        transactions_df["city"] = transactions_df["Ciudad"]
+        transactions_df["balance"] = 0
+        return transactions_df[STANDARD_COLUMNS]
+
+
+class BancoChileBilledCreditCardBankTransactions(
+    BancoChileBankMixin, BilledCreditCardMixin, BankTransactions
+):
+    """Class for handling billed transactions from Banco Chile Credit Card."""
+
+    @classmethod
+    def get_excel_parameters(cls) -> Dict[str, Any]:
+        """
+        Get Banco Chile Billed Credit Card-specific Excel loading parameters.
+
+        Returns:
+            Dict[str, Any]: Parameters to pass to pd.read_excel
+        """
+        return {"skiprows": 17}
+
+    def _convert_dataframe(self, transactions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Convert Banco Chile billed credit card transactions format to standard format.
+
+        Args:
+            transactions_df (pd.DataFrame): Original Banco Chile transactions.
+
+        Returns:
+            pd.DataFrame: Standardized transactions.
+        """
+        transactions_df["date"] = pd.to_datetime(
+            transactions_df["Fecha"], format="%d/%m/%Y"
+        )
+        transactions_df["description"] = transactions_df["Descripción"]
+        transactions_df["payee"] = transactions_df["Descripción"]
+        transactions_df["amount"] = -transactions_df["Monto ($)"]
+        transactions_df["city"] = ""
+        transactions_df["balance"] = 0
+        return transactions_df[STANDARD_COLUMNS]
+
+
+class BancoChileUnbilledCreditCardBankTransactions(
+    BancoChileBankMixin, UnbilledCreditCardMixin, BankTransactions
+):
+    """Class for handling unbilled (pending) transactions from Banco Chile Credit Card."""
+
+    @classmethod
+    def get_excel_parameters(cls) -> Dict[str, Any]:
+        """
+        Get Banco Chile Unbilled Credit Card-specific Excel loading parameters.
+
+        Returns:
+            Dict[str, Any]: Parameters to pass to pd.read_excel
+        """
+        return {"skiprows": 17}  # Same as the original implementation
+
+    def _convert_dataframe(self, transactions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Convert Banco Chile unbilled credit card transactions format to standard format.
+
+        Args:
+            transactions_df (pd.DataFrame): Original Banco Chile unbilled transactions.
+
+        Returns:
+            pd.DataFrame: Standardized transactions.
+        """
+        # This is the original implementation from BancoChileCreditCardBankTransactions
+        transactions_df["date"] = pd.to_datetime(
+            transactions_df["Fecha"], format="%d/%m/%Y"
+        )
+        transactions_df["description"] = transactions_df["Descripción"]
+        transactions_df["payee"] = transactions_df["Descripción"]
+        transactions_df["amount"] = -transactions_df["Unnamed: 10"]
+        transactions_df["city"] = transactions_df["Ciudad"]
+        transactions_df["balance"] = 0
+        return transactions_df[STANDARD_COLUMNS]
+
+
+class BankTransactionsFactory:
+    """Factory class for creating bank transaction objects.
+
+    This class centralizes the creation of bank transaction objects based on the bank and account type.
+    It decouples the client code from the concrete implementations and makes it easier to add new types.
+    """
+
+    _registry: Dict[tuple[Bank, AccountType], Type[BankTransactions]] = {
+        (
+            Bank.SANTANDER,
+            AccountType.CHECKING,
+        ): SantanderCheckingAccountBankTransactions,
+        (Bank.ITAU, AccountType.CHECKING): ItauCheckingAccountBankTransactions,
+        (
+            Bank.BANCO_CHILE,
+            AccountType.CHECKING,
+        ): BancoChileCheckingAccountBankTransactions,
+        (Bank.ITAU, AccountType.CREDIT_BILLED): ItauBilledCreditCardBankTransactions,
+        (
+            Bank.ITAU,
+            AccountType.CREDIT_UNBILLED,
+        ): ItauUnbilledCreditCardBankTransactions,
+        (
+            Bank.BANCO_CHILE,
+            AccountType.CREDIT_BILLED,
+        ): BancoChileBilledCreditCardBankTransactions,
+        (
+            Bank.BANCO_CHILE,
+            AccountType.CREDIT_UNBILLED,
+        ): BancoChileUnbilledCreditCardBankTransactions,
+    }
+
+    @classmethod
+    def create_from_excel(
+        cls,
+        bank: Union[Bank, str],
+        account_type: Union[AccountType, str],
+        input_file: str,
+        sheet_name: int = 0,
+    ) -> BankTransactions:
+        """
+        Create a bank transactions object from an Excel file.
+
+        Args:
+            bank (Union[Bank, str]): The bank type (can be enum or string).
+            account_type (Union[AccountType, str]): The account type (can be enum or string).
+            input_file (str): Path to the Excel file.
+            sheet_name (int, optional): Sheet index to read from. Defaults to 0.
+
+        Returns:
+            BankTransactions: The appropriate bank transactions object.
+
+        Raises:
+            ValueError: If the bank and account type combination is not supported.
+        """
+        # Ensure bank and account_type are enums
+        if isinstance(bank, str):
+            bank = Bank(bank.lower())
+
+        if isinstance(account_type, str):
+            account_type = AccountType(account_type.lower())
+
+        # Get the appropriate class based on bank and account type
+        transaction_class = cls._registry.get((bank, account_type))
+
+        if transaction_class is None:
+            raise ValueError(
+                f"Unsupported combination of bank '{bank}' and account type '{account_type}'"
+            )
+
+        # Create the instance from the Excel file
+        return transaction_class.from_excel(input_file, sheet_name=sheet_name)
+
+    @classmethod
+    def create(
+        cls,
+        bank: Union[Bank, str],
+        account_type: Union[AccountType, str],
+        transactions_df: pd.DataFrame,
+        convert: bool = True,
+    ) -> BankTransactions:
+        """
+        Create a bank transactions object from a DataFrame.
+
+        Args:
+            bank (Union[Bank, str]): The bank type (can be enum or string).
+            account_type (Union[AccountType, str]): The account type (can be enum or string).
+            transactions_df (pd.DataFrame): DataFrame containing transactions.
+            convert (bool, optional): Whether to convert the DataFrame format. Defaults to True.
+
+        Returns:
+            BankTransactions: The appropriate bank transactions object.
+
+        Raises:
+            ValueError: If the bank and account type combination is not supported.
+        """
+        # Ensure bank and account_type are enums
+        if isinstance(bank, str):
+            bank = Bank(bank.lower())
+
+        if isinstance(account_type, str):
+            account_type = AccountType(account_type.lower())
+
+        # Get the appropriate class based on bank and account type
+        transaction_class = cls._registry.get((bank, account_type))
+
+        if transaction_class is None:
+            raise ValueError(
+                f"Unsupported combination of bank '{bank}' and account type '{account_type}'"
+            )
+
+        # Create the instance from the DataFrame
+        return transaction_class(transactions_df, convert=convert)
+
+    @classmethod
+    def register(
+        cls,
+        bank: Bank,
+        account_type: AccountType,
+        transaction_class: Type[BankTransactions],
+    ) -> None:
+        """
+        Register a new bank transaction class.
+
+        Args:
+            bank (Bank): The bank enum.
+            account_type (AccountType): The account type enum.
+            transaction_class (Type[BankTransactions]): The transaction class to register.
+        """
+        cls._registry[(bank, account_type)] = transaction_class

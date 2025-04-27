@@ -10,9 +10,11 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from .bank_transactions import (
     SantanderCheckingAccountBankTransactions,
-    ItauCreditCardBankTransactions,
+    ItauBilledCreditCardBankTransactions,
+    ItauUnbilledCreditCardBankTransactions,
     ItauCheckingAccountBankTransactions,
-    BancoChileCreditCardBankTransactions,
+    BancoChileBilledCreditCardBankTransactions,
+    BancoChileUnbilledCreditCardBankTransactions,
     BancoChileCheckingAccountBankTransactions,
 )
 from .schemas import BankTransactionsSchema
@@ -21,7 +23,8 @@ console = Console()
 
 # Define account type constants
 ACCOUNT_TYPE_CHECKING = "checking"
-ACCOUNT_TYPE_CREDIT = "credit"
+ACCOUNT_TYPE_CREDIT_BILLED = "credit-billed"
+ACCOUNT_TYPE_CREDIT_UNBILLED = "credit-unbilled"
 
 # Map of supported banks and account types to their respective classes
 BANK_CLASSES = {
@@ -29,11 +32,13 @@ BANK_CLASSES = {
         ACCOUNT_TYPE_CHECKING: SantanderCheckingAccountBankTransactions,
     },
     "itau": {
-        ACCOUNT_TYPE_CREDIT: ItauCreditCardBankTransactions,
+        ACCOUNT_TYPE_CREDIT_BILLED: ItauBilledCreditCardBankTransactions,
+        ACCOUNT_TYPE_CREDIT_UNBILLED: ItauUnbilledCreditCardBankTransactions,
         ACCOUNT_TYPE_CHECKING: ItauCheckingAccountBankTransactions,
     },
     "bancochile": {
-        ACCOUNT_TYPE_CREDIT: BancoChileCreditCardBankTransactions,
+        ACCOUNT_TYPE_CREDIT_BILLED: BancoChileBilledCreditCardBankTransactions,
+        ACCOUNT_TYPE_CREDIT_UNBILLED: BancoChileUnbilledCreditCardBankTransactions,
         ACCOUNT_TYPE_CHECKING: BancoChileCheckingAccountBankTransactions,
     },
 }
@@ -49,8 +54,8 @@ SUPPORTED_ACCOUNT_TYPES = {
 # Default account type for each bank
 DEFAULT_ACCOUNT_TYPES = {
     "santander": ACCOUNT_TYPE_CHECKING,
-    "itau": ACCOUNT_TYPE_CREDIT,
-    "bancochile": ACCOUNT_TYPE_CREDIT,
+    "itau": ACCOUNT_TYPE_CREDIT_BILLED,
+    "bancochile": ACCOUNT_TYPE_CREDIT_BILLED,
 }
 
 
@@ -105,9 +110,15 @@ def cli():
     "--account-type",
     "-a",
     type=click.Choice(
-        [ACCOUNT_TYPE_CHECKING, ACCOUNT_TYPE_CREDIT], case_sensitive=False
+        [
+            ACCOUNT_TYPE_CHECKING,
+            ACCOUNT_TYPE_CREDIT_BILLED,
+            ACCOUNT_TYPE_CREDIT_UNBILLED,
+        ],
+        case_sensitive=False,
     ),
-    help="Account type (checking for 'Cuenta Corriente', credit for 'Tarjeta de Crédito'). "
+    help="Account type (checking for 'Cuenta Corriente', credit-billed for 'Tarjeta de Crédito Facturada', "
+    "credit-unbilled for 'Tarjeta de Crédito No Facturada'). "
     "If not specified, defaults to the most common type for the selected bank.",
 )
 @click.option(
